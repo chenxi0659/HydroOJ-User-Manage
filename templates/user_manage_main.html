@@ -7,11 +7,11 @@
   <div class="section__header">
     <h1 class="section__title">{{ _('User Management') }}</h1>
     <div class="section__tools">
-      <span id="selected-count" class="text-gray" style="display:none;margin-right:12px;"></span>
+      <span id="selected-count" class="um-selected-count" style="display:none"></span>
       <button id="export-selected-btn" class="rounded button" disabled>
         <span class="icon icon-download"></span> {{ _('Export Selected') }}
       </button>
-      <button id="deselect-all-btn" class="rounded button" style="display:none;">
+      <button id="deselect-all-btn" class="rounded button" style="display:none">
         {{ _('Deselect All') }}
       </button>
     </div>
@@ -19,11 +19,9 @@
 
   <!-- 分组筛选栏 -->
   <div class="section__body">
-    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
-      <strong style="flex:0 0 auto;">{{ _('Group Filter') }}:</strong>
-      <span id="group-tag-all" class="group-tag active" data-group="">
-        {{ _('All Users') }}
-      </span>
+    <div class="um-filter-row">
+      <strong>{{ _('Group Filter') }}:</strong>
+      <span class="group-tag active" data-group="">{{ _('All Users') }}</span>
       {% for g in groups %}
       <span class="group-tag" data-group="{{ g.name }}" title="{{ g.count }} {{ _('users') }}">
         {{ g.name }} ({{ g.count }})
@@ -70,7 +68,6 @@
   <div class="section__body no-padding">
     <table class="data-table" id="user-table">
       <colgroup>
-        <col class="col--cb">
         <col class="col--uid">
         <col class="col--user">
         <col class="col--email">
@@ -82,7 +79,6 @@
       </colgroup>
       <thead>
         <tr>
-          <th class="col--cb"><input type="checkbox" id="select-all-checkbox" title="{{ _('Select All') }}"></th>
           <th class="col--uid">{{ _('User ID') }}</th>
           <th class="col--user">{{ _('Username') }}</th>
           <th class="col--email">{{ _('Email') }}</th>
@@ -97,10 +93,7 @@
         {% for udoc in udocs %}
         {% set dudoc = dudocMap[udoc._id] %}
         {% set isUnified = udoc.major and udoc.class %}
-        <tr data-uid="{{ udoc._id }}" class="user-row">
-          <td class="col--cb">
-            <input type="checkbox" class="user-checkbox" data-uid="{{ udoc._id }}">
-          </td>
+        <tr class="um-user-row" data-uid="{{ udoc._id }}">
           <td class="col--uid">{{ udoc._id }}</td>
           <td class="col--user">
             {{ user.render_inline(udoc, badge=false) }}
@@ -183,20 +176,14 @@
   </div>
 </div>
 
-<!-- 隐藏导出表单 -->
-<form id="hidden-export-form" method="post" action="{{ url('user_manage_export') }}" style="display:none;">
-  <input type="hidden" name="uids" id="export-uids-input">
-</form>
-
 <style>
-.col--cb { width: 34px; text-align: center; }
-.col--uid { width: 60px; }
-.col--user { width: 130px; }
-.col--email { width: 170px; }
-.col--major { width: 85px; }
-.col--class { width: 95px; }
-.col--regtype { width: 80px; }
-.col--priv { width: 80px; }
+.col--uid { width: 70px; }
+.col--user { width: 140px; }
+.col--email { width: 190px; }
+.col--major { width: 100px; }
+.col--class { width: 110px; }
+.col--regtype { width: 90px; }
+.col--priv { width: 85px; }
 .col--actions { width: 60px; }
 
 .badge {
@@ -217,28 +204,24 @@
 .badge--gray { background-color: #777; }
 .badge--yellow { background-color: #f0ad4e; }
 .badge--purple { background-color: #9b59b6; }
-.text-red { color: #d9534f; }
-.text-green { color: #5cb85c; }
-.text-gray { color: #777; }
+.text-gray { color: #888; }
 .button--small { padding: 4px 8px; font-size: 12px; }
 
+.um-filter-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+}
+
 .group-tag {
-  display: inline-block;
-  padding: 4px 12px;
-  margin: 0 2px;
-  border: 1px solid #ccc;
-  border-radius: 14px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.15s;
-  user-select: none;
+  display: inline-block; padding: 4px 12px; margin: 0 2px;
+  border: 1px solid #ccc; border-radius: 14px;
+  cursor: pointer; font-size: 13px; user-select: none;
 }
 .group-tag:hover { border-color: #5bc0de; background: #f0f9ff; }
 .group-tag.active { background: #337ab7; border-color: #337ab7; color: #fff; }
 
 .um-dialog {
   position: fixed; top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%,-50%);
   background: #fff; border: 1px solid #ddd;
   border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,.2);
   z-index: 10000; min-width: 340px; padding: 20px;
@@ -246,10 +229,13 @@
 .dialog__footer { text-align: right; margin-top: 12px; }
 .dialog__footer button { margin-left: 8px; }
 
-#selected-count { font-weight: bold; color: #337ab7; }
+.um-selected-count { font-weight: bold; color: #337ab7; margin-right: 8px; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
-.user-row { cursor: pointer; }
-.user-row:hover { background: #f8f9fa; }
+
+/* 行选择和 hover */
+.um-user-row { cursor: pointer; transition: background 0.15s; }
+.um-user-row:hover { background: #f4f7fa; }
+.um-user-row.selected { background: #e8f0fe; }
 </style>
 
 <script>
@@ -257,69 +243,90 @@ $(function() {
   var selectedUids = {};
   var currentGroup = '{{ group }}';
 
+  /* ---------- AJAX helper (mimics Hydro request.post) ---------- */
+  function apiPost(url, data) {
+    return $.ajax({
+      url: url,
+      method: 'POST',
+      data: JSON.stringify(data),
+      contentType: 'application/json',
+      headers: { Accept: 'application/json' },
+      dataType: 'json'
+    });
+  }
+
+  /* ---------- Toolbar state ---------- */
   function updateToolbar() {
     var count = Object.keys(selectedUids).length;
+    var $cnt = $('#selected-count');
+    var $exp = $('#export-selected-btn');
+    var $des = $('#deselect-all-btn');
+    var $add = $('#add-to-group-btn');
     if (count > 0) {
-      $('#selected-count').text(count + ' users selected').show();
-      $('#export-selected-btn').prop('disabled', false);
-      $('#deselect-all-btn').show();
-      $('#add-to-group-btn').prop('disabled', false);
+      $cnt.text(count + ' users selected').show();
+      $exp.prop('disabled', false);
+      $des.show();
+      $add.prop('disabled', false);
     } else {
-      $('#selected-count').hide();
-      $('#export-selected-btn').prop('disabled', true);
-      $('#deselect-all-btn').hide();
-      $('#add-to-group-btn').prop('disabled', true);
+      $cnt.hide();
+      $exp.prop('disabled', true);
+      $des.hide();
+      $add.prop('disabled', true);
     }
   }
 
-  // 点击行切换复选框
-  $('#user-table tbody').on('click', 'tr', function(e) {
-    if ($(e.target).is('a, button, input')) return;
-    var cb = $(this).find('.user-checkbox');
-    cb.prop('checked', !cb.prop('checked')).trigger('change');
-  });
-
-  // 单个复选框
-  $(document).on('change', '.user-checkbox', function() {
-    var uid = $(this).data('uid');
-    if ($(this).prop('checked')) selectedUids[uid] = true;
-    else delete selectedUids[uid];
-    $('#select-all-checkbox').prop('checked', $('.user-checkbox:checked').length === $('.user-checkbox').length);
+  /* ---------- Row click = toggle selection ---------- */
+  $('#user-table tbody').on('click', 'td', function(e) {
+    // Don't toggle if they clicked a link or button
+    if ($(e.target).is('a, button')) return;
+    var $row = $(this).closest('tr');
+    var uid = $row.data('uid');
+    if (selectedUids[uid]) {
+      delete selectedUids[uid];
+      $row.removeClass('selected');
+    } else {
+      selectedUids[uid] = true;
+      $row.addClass('selected');
+    }
     updateToolbar();
   });
 
-  // 全选/取消
-  $('#select-all-checkbox').on('change', function() {
-    var checked = $(this).prop('checked');
-    $('.user-checkbox').each(function() {
-      $(this).prop('checked', checked);
-      if (checked) selectedUids[$(this).data('uid')] = true;
-      else delete selectedUids[$(this).data('uid')];
-    });
-    updateToolbar();
-  });
-
+  /* ---------- Deselect all ---------- */
   $('#deselect-all-btn').on('click', function() {
     selectedUids = {};
-    $('.user-checkbox').prop('checked', false);
-    $('#select-all-checkbox').prop('checked', false);
+    $('.um-user-row').removeClass('selected');
     updateToolbar();
   });
 
-  // ========== 导出 ==========
+  /* ---------- Export ---------- */
   $('#export-selected-btn').on('click', function() {
     var uids = Object.keys(selectedUids).map(Number);
     if (uids.length === 0) return;
-    $('#export-uids-input').val(JSON.stringify(uids));
-    $('#hidden-export-form').submit();
+    $('#export-selected-btn').prop('disabled', true).text('Exporting...');
+    apiPost('{{ url('user_manage_export') }}', { uids: JSON.stringify(uids) })
+      .then(function(res) {
+        var bom = '﻿';
+        var blob = new Blob([bom + res.csv], { type: 'text/csv;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'user_export.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .fail(function(err) {
+        alert('Export failed: ' + (err.responseJSON?.message || err.statusText || 'Unknown error'));
+      })
+      .always(function() {
+        $('#export-selected-btn').prop('disabled', false).html('<span class="icon icon-download"></span> {{ _('Export Selected') }}');
+      });
   });
 
-  // ========== 分组筛选 ==========
+  /* ---------- Group filter ---------- */
   $(document).on('click', '.group-tag', function() {
-    var name = $(this).data('group');
-    $('.group-tag').removeClass('active');
-    $(this).addClass('active');
-    $('#search-group-input').val(name);
+    var name = $(this).data('group') || '';
     window.location.href = '{{ url('user_manage_main') }}' + (name ? '?group=' + encodeURIComponent(name) : '');
   });
 
@@ -329,35 +336,35 @@ $(function() {
     $('#delete-group-btn').show();
   }
 
-  // ========== 新建分组 ==========
+  /* ---------- Create group ---------- */
   $('#create-group-btn').on('click', function() {
-    $('#create-group-dialog').show(); $('#new-group-name').focus();
+    $('#create-group-dialog').show(); $('#new-group-name').val('').focus();
   });
   $('#cancel-create-group').on('click', function() {
-    $('#create-group-dialog').hide(); $('#new-group-name').val('');
+    $('#create-group-dialog').hide();
   });
   $('#confirm-create-group').on('click', function() {
     var name = $('#new-group-name').val().trim();
     if (!name) return;
-    $.post('{{ url('user_manage_groups') }}', { operation: 'create', name: name }, function() {
-      location.reload();
-    });
+    apiPost('{{ url('user_manage_groups') }}', { operation: 'create', name: name })
+      .then(function() { window.location.reload(); })
+      .fail(function(err) { alert(err.responseJSON?.message || 'Error'); });
   });
   $('#new-group-name').on('keydown', function(e) {
     if (e.key === 'Enter') $('#confirm-create-group').click();
     if (e.key === 'Escape') $('#cancel-create-group').click();
   });
 
-  // ========== 删除分组 ==========
+  /* ---------- Delete group ---------- */
   $('#delete-group-btn').on('click', function() {
     if (!currentGroup) return;
     if (!confirm('Delete group "' + currentGroup + '"?')) return;
-    $.post('{{ url('user_manage_groups') }}', { operation: 'delete', name: currentGroup }, function() {
-      location.href = '{{ url('user_manage_main') }}';
-    });
+    apiPost('{{ url('user_manage_groups') }}', { operation: 'delete', name: currentGroup })
+      .then(function() { window.location.href = '{{ url('user_manage_main') }}'; })
+      .fail(function(err) { alert(err.responseJSON?.message || 'Error'); });
   });
 
-  // ========== 加入分组 ==========
+  /* ---------- Add to group ---------- */
   $('#add-to-group-btn').on('click', function() {
     var sel = $('#select-group-target');
     sel.find('option:not(:first)').remove();
@@ -374,21 +381,14 @@ $(function() {
     var g = $('#select-group-target').val();
     var uids = Object.keys(selectedUids).map(Number);
     if (!g || uids.length === 0) return;
-    $.post('{{ url('user_manage_groups') }}', {
+    apiPost('{{ url('user_manage_groups') }}', {
       operation: 'addUsers', name: g, uids: JSON.stringify(uids)
-    }, function() { location.reload(); });
+    }).then(function() { window.location.reload(); })
+      .fail(function(err) { alert(err.responseJSON?.message || 'Error'); });
   });
 
-  // ========== 排序 ==========
+  /* ---------- Sort ---------- */
   $('#sort-select').on('change', function() { $(this).closest('form').submit(); });
-
-  // 快捷键 Ctrl+A
-  $(document).on('keydown', function(e) {
-    if (e.ctrlKey && e.key === 'a' && document.activeElement === document.body) {
-      e.preventDefault();
-      $('#select-all-checkbox').prop('checked', true).trigger('change');
-    }
-  });
 });
 </script>
 {% endblock %}

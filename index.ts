@@ -166,8 +166,7 @@ class UserManageExportHandler extends UserManageHandler {
 
         const csv = '﻿' + generateCSV(columns, rows); // BOM for Excel UTF-8
 
-        this.response.body = csv;
-        this.response.type = 'text/csv';
+        this.response.body = { csv };
     }
 }
 
