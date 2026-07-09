@@ -1,6 +1,6 @@
 import {
     Context, Handler, param, PRIV, Types, UserModel, DomainModel,
-    ValidationError, UserNotFoundError, PermissionError, Time, SystemModel, moment
+    ValidationError, UserNotFoundError, PermissionError, SystemModel, moment
 } from 'hydrooj';
 
 declare module 'hydrooj' {
@@ -9,33 +9,81 @@ declare module 'hydrooj' {
     }
 }
 
-// 用户管理处理器基类
+// ==================== 工具函数 ====================
+
+function parseUidArray(raw: string | undefined): number[] {
+    if (!raw) return [];
+    try {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return arr.map(Number).filter(n => !isNaN(n));
+    } catch { /* fall through */ }
+    return [];
+}
+
+function generateCSV(columns: string[], rows: string[][]): string {
+    const escape = (val: string) => {
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+    };
+    const header = columns.map(escape).join(',');
+    const body = rows.map(row => row.map(escape).join(',')).join('\n');
+    return header + '\n' + body;
+}
+
+function getRegistrationType(udoc: any): string {
+    if (udoc.major && udoc.class) return '统一注册';
+    return '主动注册';
+}
+
+// ==================== 用户管理处理器基类 ====================
+
 class UserManageHandler extends Handler {
     async prepare() {
-        // 检查是否有系统管理权限
         this.checkPriv(PRIV.PRIV_EDIT_SYSTEM);
     }
 }
 
-// 用户管理主页面处理器
+// ==================== 用户管理主页面处理器 ====================
+
 class UserManageMainHandler extends UserManageHandler {
     @param('page', Types.PositiveInt, true)
     @param('search', Types.String, true)
     @param('sort', Types.String, true)
-    async get(domainId: string, page = 1, search = '', sort = '_id') {
+    @param('group', Types.String, true)
+    async get(domainId: string, page = 1, search = '', sort = '_id', group = '') {
         const limit = 50;
         const query: any = {};
-        
+
+        // 分组筛选
+        if (group) {
+            const gdocs = await UserModel.listGroup(domainId, undefined, [group]);
+            if (gdocs.length > 0 && gdocs[0].uids.length > 0) {
+                query._id = { $in: gdocs[0].uids };
+            } else {
+                // 分组为空，直接返回空结果
+                query._id = { $in: [] };
+            }
+        }
+
         // 搜索功能
         if (search) {
             const searchRegex = new RegExp(search, 'i');
-            query.$or = [
-                { uname: searchRegex },
-                { mail: searchRegex },
+            const searchQuery: any[] = [
+                { unameLower: searchRegex },
+                { mailLower: searchRegex },
                 { _id: isNaN(+search) ? undefined : +search }
             ].filter(Boolean);
+            if (query._id) {
+                query.$and = [{ _id: query._id }, { $or: searchQuery }];
+                delete query._id;
+            } else {
+                query.$or = searchQuery;
+            }
         }
-        
+
         // 排序选项
         const sortOptions: Record<string, any> = {
             '_id': { _id: 1 },
@@ -44,21 +92,27 @@ class UserManageMainHandler extends UserManageHandler {
             'loginat': { loginat: -1 },
             'priv': { priv: -1 }
         };
-        
+
         const sortQuery = sortOptions[sort] || { _id: 1 };
-        
+
         // 获取用户列表
         const [udocs, upcount] = await this.paginate(
             UserModel.getMulti(query).sort(sortQuery),
             page,
             limit
         );
-        
+
         // 获取用户在当前域的信息
         const duids = udocs.map(udoc => udoc._id);
         const dudocs = await DomainModel.getMultiUserInDomain(domainId, { uid: { $in: duids } }).toArray();
         const dudocMap = Object.fromEntries(dudocs.map(dudoc => [dudoc.uid, dudoc]));
-        
+
+        // 获取所有分组（用于分组筛选栏）
+        const allGroups = await UserModel.listGroup(domainId);
+        const groups = allGroups
+            .filter(g => !/^\d+$/.test(g.name)) // 过滤掉系统自动生成的 uid 分组
+            .map(g => ({ name: g.name, count: g.uids.length }));
+
         this.response.template = 'user_manage_main.html';
         this.response.body = {
             udocs,
@@ -67,21 +121,127 @@ class UserManageMainHandler extends UserManageHandler {
             upcount,
             search,
             sort,
+            group,
+            groups,
             canEdit: true,
             moment
         };
     }
 }
 
-// 用户详情和编辑处理器
+// ==================== 用户导出处理器 ====================
+
+class UserManageExportHandler extends UserManageHandler {
+    @param('uids', Types.String)
+    async post(domainId: string, uids: string) {
+        const uidArray = parseUidArray(uids);
+        if (uidArray.length === 0) {
+            throw new ValidationError('uids', 'No users selected');
+        }
+
+        // 获取用户数据
+        const udocs = await UserModel.getMulti({ _id: { $in: uidArray } }).toArray();
+
+        // 排序：同班级 → 同专业 → ID
+        udocs.sort((a, b) => {
+            const aClass = a.class || '￿';
+            const bClass = b.class || '￿';
+            const aMajor = a.major || '￿';
+            const bMajor = b.major || '￿';
+            if (aClass !== bClass) return aClass.localeCompare(bClass);
+            if (aMajor !== bMajor) return aMajor.localeCompare(bMajor);
+            return (a._id || 0) - (b._id || 0);
+        });
+
+        // 生成 CSV
+        const columns = ['ID', '用户名', '邮箱', '专业', '班级', '注册类型'];
+        const rows = udocs.map(u => [
+            String(u._id),
+            u.uname || '',
+            u.mail || '',
+            u.major || '',
+            u.class || '',
+            getRegistrationType(u)
+        ]);
+
+        const csv = '﻿' + generateCSV(columns, rows); // BOM for Excel UTF-8
+
+        this.response.body = csv;
+        this.response.type = 'text/csv';
+    }
+}
+
+// ==================== 分组管理处理器 ====================
+
+class UserManageGroupsHandler extends UserManageHandler {
+    async get(domainId: string) {
+        const allGroups = await UserModel.listGroup(domainId);
+        const groups = allGroups
+            .filter(g => !/^\d+$/.test(g.name))
+            .map(g => ({ name: g.name, count: g.uids.length }));
+        this.response.body = { groups };
+    }
+
+    @param('operation', Types.String)
+    @param('name', Types.String, true)
+    @param('uids', Types.String, true)
+    async post(domainId: string, operation: string, name?: string, uids?: string) {
+        if (operation === 'create') {
+            if (!name || !name.trim()) {
+                throw new ValidationError('name', 'Group name is required');
+            }
+            const trimmed = name.trim();
+            const existing = await UserModel.listGroup(domainId, undefined, [trimmed]);
+            if (existing.length > 0) {
+                throw new ValidationError('name', 'Group already exists');
+            }
+            await UserModel.updateGroup(domainId, trimmed, []);
+            this.response.body = { success: true, name: trimmed };
+
+        } else if (operation === 'delete') {
+            if (!name) throw new ValidationError('name', 'Group name is required');
+            await UserModel.delGroup(domainId, name);
+            this.response.body = { success: true };
+
+        } else if (operation === 'addUsers') {
+            if (!name) throw new ValidationError('name', 'Group name is required');
+            const uidArr = parseUidArray(uids);
+            if (uidArr.length === 0) throw new ValidationError('uids', 'No users selected');
+            const gdocs = await UserModel.listGroup(domainId, undefined, [name]);
+            if (gdocs.length === 0) throw new ValidationError('name', 'Group not found');
+            const existingUids = gdocs[0].uids || [];
+            const merged = [...new Set([...existingUids, ...uidArr])];
+            await UserModel.updateGroup(domainId, name, merged);
+            this.response.body = { success: true, count: merged.length };
+
+        } else if (operation === 'removeUsers') {
+            if (!name) throw new ValidationError('name', 'Group name is required');
+            const uidArr = parseUidArray(uids);
+            if (uidArr.length === 0) throw new ValidationError('uids', 'No users selected');
+            const gdocs = await UserModel.listGroup(domainId, undefined, [name]);
+            if (gdocs.length === 0) throw new ValidationError('name', 'Group not found');
+            const existingUids = gdocs[0].uids || [];
+            const uidSet = new Set(uidArr);
+            const filtered = existingUids.filter((id: number) => !uidSet.has(id));
+            await UserModel.updateGroup(domainId, name, filtered);
+            this.response.body = { success: true, count: filtered.length };
+
+        } else {
+            throw new ValidationError('operation', 'Unknown operation');
+        }
+    }
+}
+
+// ==================== 用户详情和编辑处理器 ====================
+
 class UserManageDetailHandler extends UserManageHandler {
     @param('uid', Types.Int)
     async get(domainId: string, uid: number) {
         const udoc = await UserModel.getById(domainId, uid);
         if (!udoc) throw new UserNotFoundError(uid);
-        
+
         const dudoc = await DomainModel.getDomainUser(domainId, udoc);
-        
+
         this.response.template = 'user_manage_detail.html';
         this.response.body = {
             udoc,
@@ -90,13 +250,13 @@ class UserManageDetailHandler extends UserManageHandler {
             moment
         };
     }
-    
+
     @param('uid', Types.Int)
     @param('operation', Types.String)
     async post(domainId: string, uid: number, operation: string) {
         const udoc = await UserModel.getById(domainId, uid);
         if (!udoc) throw new UserNotFoundError(uid);
-        
+
         if (operation === 'edit') {
             await this.postEdit(domainId, uid);
         } else if (operation === 'resetPassword') {
@@ -107,110 +267,132 @@ class UserManageDetailHandler extends UserManageHandler {
             await this.postBan(domainId, uid);
         } else if (operation === 'unban') {
             await this.postUnban(domainId, uid);
+        } else if (operation === 'updateFields') {
+            await this.postUpdateFields(domainId, uid);
         }
-        
+
         this.back();
     }
-    
+
     @param('uid', Types.Int)
     @param('mail', Types.Email, true)
     @param('uname', Types.Username, true)
     @param('school', Types.String, true)
     @param('bio', Types.Content, true)
-    async postEdit(domainId: string, uid: number, mail?: string, uname?: string, school?: string, bio?: string) {
+    @param('major', Types.String, true)
+    @param('class', Types.String, true)
+    async postEdit(domainId: string, uid: number, mail?: string, uname?: string, school?: string, bio?: string, major?: string, newClass?: string) {
         const udoc = await UserModel.getById(domainId, uid);
         if (!udoc) throw new UserNotFoundError(uid);
-        
+
         if (mail && mail !== udoc.mail) {
-            // 检查邮箱是否已被使用
             const existing = await UserModel.getByEmail(domainId, mail);
             if (existing && existing._id !== uid) {
                 throw new ValidationError('mail', 'Email already in use');
             }
             await UserModel.setEmail(uid, mail);
         }
-        
+
         if (uname && uname !== udoc.uname) {
-            // 检查用户名是否已被使用
             const existing = await UserModel.getByUname(domainId, uname);
             if (existing && existing._id !== uid) {
                 throw new ValidationError('uname', 'Username already in use');
             }
             await UserModel.setUname(uid, uname);
         }
-        
+
         const updates: any = {};
         if (school !== undefined) updates.school = school;
         if (bio !== undefined) updates.bio = bio;
-        
+        if (major !== undefined) updates.major = major;
+        if (newClass !== undefined) updates.class = newClass;
+
         if (Object.keys(updates).length > 0) {
             await UserModel.setById(uid, updates);
         }
     }
-    
+
+    @param('uid', Types.Int)
+    @param('major', Types.String, true)
+    @param('class', Types.String, true)
+    async postUpdateFields(domainId: string, uid: number, major?: string, newClass?: string) {
+        const udoc = await UserModel.getById(domainId, uid);
+        if (!udoc) throw new UserNotFoundError(uid);
+
+        const updates: any = {};
+        if (major !== undefined) updates.major = major;
+        if (newClass !== undefined) updates.class = newClass;
+
+        if (Object.keys(updates).length > 0) {
+            await UserModel.setById(uid, updates);
+        }
+    }
+
     @param('uid', Types.Int)
     @param('password', Types.Password)
     async postResetPassword(domainId: string, uid: number, password: string) {
         const udoc = await UserModel.getById(domainId, uid);
         if (!udoc) throw new UserNotFoundError(uid);
-        
-        // 不允许重置超级管理员密码（除非当前用户也是超级管理员）
+
         if (udoc.priv === PRIV.PRIV_ALL && this.user.priv !== PRIV.PRIV_ALL) {
             throw new PermissionError('Cannot reset super admin password');
         }
-        
+
         await UserModel.setPassword(uid, password);
     }
-    
+
     @param('uid', Types.Int)
     @param('priv', Types.Int)
     async postSetPriv(domainId: string, uid: number, priv: number) {
         const udoc = await UserModel.getById(domainId, uid);
         if (!udoc) throw new UserNotFoundError(uid);
-        
-        // 不允许修改超级管理员权限（除非当前用户也是超级管理员）
+
         if ((udoc.priv === PRIV.PRIV_ALL || priv === PRIV.PRIV_ALL) && this.user.priv !== PRIV.PRIV_ALL) {
             throw new PermissionError('Cannot modify super admin privileges');
         }
-        
+
         await UserModel.setPriv(uid, priv);
     }
-    
+
     @param('uid', Types.Int)
     async postBan(domainId: string, uid: number) {
         const udoc = await UserModel.getById(domainId, uid);
         if (!udoc) throw new UserNotFoundError(uid);
-        
-        // 不允许封禁超级管理员
+
         if (udoc.priv === PRIV.PRIV_ALL) {
             throw new PermissionError('Cannot ban super admin');
         }
-        
+
         await UserModel.ban(uid, 'Banned by administrator');
     }
-    
+
     @param('uid', Types.Int)
     async postUnban(domainId: string, uid: number) {
         const udoc = await UserModel.getById(domainId, uid);
         if (!udoc) throw new UserNotFoundError(uid);
-        
-        // 恢复为默认权限
+
         const defaultPriv = await SystemModel.get('default.priv');
         await UserModel.setPriv(uid, defaultPriv);
     }
 }
 
 
+// ==================== 插件入口 ====================
 
 export async function apply(ctx: Context) {
-    // 注册路由
+    // 注意：具体路由必须在 /manage/users/:uid 之前注册，避免被 :uid 拦截
+    ctx.Route('user_manage_export', '/manage/users/export', UserManageExportHandler, PRIV.PRIV_EDIT_SYSTEM);
+    ctx.Route('user_manage_groups', '/manage/users/groups', UserManageGroupsHandler, PRIV.PRIV_EDIT_SYSTEM);
+
+    // 页面路由
     ctx.Route('user_manage_main', '/manage/users', UserManageMainHandler, PRIV.PRIV_EDIT_SYSTEM);
     ctx.Route('user_manage_detail', '/manage/users/:uid', UserManageDetailHandler, PRIV.PRIV_EDIT_SYSTEM);
-    
-    // 在控制面板侧边栏添加用户管理菜单项
+
+    // 注入控制面板菜单
     ctx.injectUI('ControlPanel', 'user_manage_main', { icon: 'user' });
-    
-    // 添加国际化支持
+
+    // ==================== 国际化 ====================
+
     ctx.i18n.load('zh', {
         'user_manage_main': '用户管理',
         'user_manage_detail': '用户详情',
@@ -272,9 +454,38 @@ export async function apply(ctx: Context) {
         'Current Privilege': '当前权限',
         'Ban User': '封禁用户',
         'Unban User': '解封用户',
-        'Copy User ID': '复制用户ID'
+        'Copy User ID': '复制用户ID',
+
+        // 新增：导出和分组
+        'Export Selected': '导出选中',
+        'Export CSV': '导出CSV',
+        'Select All': '全选',
+        'Deselect All': '取消全选',
+        'Select All Filtered': '选择当前筛选结果',
+        'Group Filter': '分组筛选',
+        'All Users': '全部用户',
+        'Create Group': '新建分组',
+        'Delete Group': '删除分组',
+        'Add to Group': '加入分组',
+        'Remove from Group': '移出分组',
+        'Group name': '分组名称',
+        'Enter group name': '请输入分组名称',
+        'Major': '专业',
+        'Class': '班级',
+        'Registration Type': '注册类型',
+        'Unified Registration': '统一注册',
+        'Self Registration': '主动注册',
+        'No users selected': '未选择用户',
+        'Export completed': '导出完成',
+        'Group created': '分组创建成功',
+        'Group deleted': '分组已删除',
+        'Users added to group': '用户已加入分组',
+        'Users removed from group': '用户已移出分组',
+        'Are you sure to delete group {0}?': '确定要删除分组 {0} 吗？',
+        '{count} users selected': '已选择 {count} 个用户',
+        'Edit Major/Class': '编辑专业/班级',
     });
-    
+
     ctx.i18n.load('en', {
         'user_manage_main': 'User Management',
         'user_manage_detail': 'User Detail',
@@ -337,6 +548,35 @@ export async function apply(ctx: Context) {
         'Current Privilege': 'Current Privilege',
         'Ban User': 'Ban User',
         'Unban User': 'Unban User',
-        'Copy User ID': 'Copy User ID'
+        'Copy User ID': 'Copy User ID',
+
+        // New: export and groups
+        'Export Selected': 'Export Selected',
+        'Export CSV': 'Export CSV',
+        'Select All': 'Select All',
+        'Deselect All': 'Deselect All',
+        'Select All Filtered': 'Select All Filtered',
+        'Group Filter': 'Group Filter',
+        'All Users': 'All Users',
+        'Create Group': 'Create Group',
+        'Delete Group': 'Delete Group',
+        'Add to Group': 'Add to Group',
+        'Remove from Group': 'Remove from Group',
+        'Group name': 'Group name',
+        'Enter group name': 'Enter group name',
+        'Major': 'Major',
+        'Class': 'Class',
+        'Registration Type': 'Registration Type',
+        'Unified Registration': 'Unified Registration',
+        'Self Registration': 'Self Registration',
+        'No users selected': 'No users selected',
+        'Export completed': 'Export completed',
+        'Group created': 'Group created',
+        'Group deleted': 'Group deleted',
+        'Users added to group': 'Users added to group',
+        'Users removed from group': 'Users removed from group',
+        'Are you sure to delete group {0}?': 'Are you sure to delete group {0}?',
+        '{count} users selected': '{count} users selected',
+        'Edit Major/Class': 'Edit Major/Class',
     });
 }

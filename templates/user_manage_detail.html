@@ -67,6 +67,22 @@
             </div>
           </div>
           <div class="row">
+            <div class="medium-6 columns">
+              {{ form.form_text({
+                label: _('Major'),
+                name: 'major',
+                value: udoc.major or ''
+              }) }}
+            </div>
+            <div class="medium-6 columns">
+              {{ form.form_text({
+                label: _('Class'),
+                name: 'class',
+                value: udoc.class or ''
+              }) }}
+            </div>
+          </div>
+          <div class="row">
             <div class="medium-12 columns">
               {{ form.form_textarea({
                 label: _('Bio'),

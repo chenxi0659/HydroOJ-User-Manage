@@ -6,18 +6,52 @@
 <div class="section">
   <div class="section__header">
     <h1 class="section__title">{{ _('User Management') }}</h1>
+    <div class="section__tools">
+      <span id="selected-count" class="text-gray" style="display:none;margin-right:12px;"></span>
+      <button id="export-selected-btn" class="rounded button" disabled>
+        <span class="icon icon-download"></span> {{ _('Export Selected') }}
+      </button>
+      <button id="deselect-all-btn" class="rounded button" style="display:none;">
+        {{ _('Deselect All') }}
+      </button>
+    </div>
   </div>
-  
+
+  <!-- 分组筛选栏 -->
+  <div class="section__body">
+    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
+      <strong style="flex:0 0 auto;">{{ _('Group Filter') }}:</strong>
+      <span id="group-tag-all" class="group-tag active" data-group="">
+        {{ _('All Users') }}
+      </span>
+      {% for g in groups %}
+      <span class="group-tag" data-group="{{ g.name }}" title="{{ g.count }} {{ _('users') }}">
+        {{ g.name }} ({{ g.count }})
+      </span>
+      {% endfor %}
+      <button id="create-group-btn" class="rounded button button--small">
+        <span class="icon icon-add"></span> {{ _('Create Group') }}
+      </button>
+      <button id="add-to-group-btn" class="rounded button button--small" disabled>
+        {{ _('Add to Group') }}
+      </button>
+      <button id="delete-group-btn" class="rounded button button--small" style="display:none;">
+        <span class="icon icon-delete"></span> {{ _('Delete Group') }}
+      </button>
+    </div>
+  </div>
+
   <!-- 搜索和筛选 -->
   <div class="section__body">
-    <form method="get" class="row">
+    <form method="get" class="row" id="search-form">
+      <input type="hidden" name="group" value="{{ group }}" id="search-group-input">
       <div class="medium-6 columns">
         <label>{{ _('Search Users') }}</label>
-        <input type="text" name="search" value="{{ search }}" placeholder="{{ _('Username, Email or User ID') }}">
+        <input type="text" name="search" id="search-input" value="{{ search }}" placeholder="{{ _('Username, Email or User ID') }}">
       </div>
       <div class="medium-4 columns">
         <label>{{ _('Sort by') }}</label>
-        <select name="sort">
+        <select name="sort" id="sort-select">
           <option value="_id" {% if sort == '_id' %}selected{% endif %}>{{ _('User ID') }}</option>
           <option value="uname" {% if sort == 'uname' %}selected{% endif %}>{{ _('Username') }}</option>
           <option value="regat" {% if sort == 'regat' %}selected{% endif %}>{{ _('Registration Time') }}</option>
@@ -31,60 +65,57 @@
       </div>
     </form>
   </div>
-  
+
   <!-- 用户列表 -->
   <div class="section__body no-padding">
-    <table class="data-table">
+    <table class="data-table" id="user-table">
       <colgroup>
+        <col class="col--cb">
         <col class="col--uid">
         <col class="col--user">
         <col class="col--email">
-        <col class="col--regat">
-        <col class="col--loginat">
+        <col class="col--major">
+        <col class="col--class">
+        <col class="col--regtype">
         <col class="col--priv">
-        <col class="col--status">
         <col class="col--actions">
       </colgroup>
       <thead>
         <tr>
+          <th class="col--cb"><input type="checkbox" id="select-all-checkbox" title="{{ _('Select All') }}"></th>
           <th class="col--uid">{{ _('User ID') }}</th>
           <th class="col--user">{{ _('Username') }}</th>
           <th class="col--email">{{ _('Email') }}</th>
-          <th class="col--regat">{{ _('Registration Time') }}</th>
-          <th class="col--loginat">{{ _('Last Login') }}</th>
+          <th class="col--major">{{ _('Major') }}</th>
+          <th class="col--class">{{ _('Class') }}</th>
+          <th class="col--regtype">{{ _('Registration Type') }}</th>
           <th class="col--priv">{{ _('Privilege') }}</th>
-          <th class="col--status">{{ _('Status') }}</th>
           <th class="col--actions">{{ _('Actions') }}</th>
         </tr>
       </thead>
       <tbody>
         {% for udoc in udocs %}
         {% set dudoc = dudocMap[udoc._id] %}
-        <tr data-uid="{{ udoc._id }}">
-          <td class="col--uid">
-            {{ udoc._id }}
+        {% set isUnified = udoc.major and udoc.class %}
+        <tr data-uid="{{ udoc._id }}" class="user-row">
+          <td class="col--cb">
+            <input type="checkbox" class="user-checkbox" data-uid="{{ udoc._id }}">
           </td>
+          <td class="col--uid">{{ udoc._id }}</td>
           <td class="col--user">
             {{ user.render_inline(udoc, badge=false) }}
             {% if dudoc and dudoc.displayName %}
               <br><small class="text-gray">{{ dudoc.displayName }}</small>
             {% endif %}
           </td>
-          <td class="col--email">
-            {{ udoc.mail }}
-          </td>
-          <td class="col--regat">
-            {% if udoc.regat %}
-              {{ moment(udoc.regat).format('YYYY-MM-DD HH:mm') }}
+          <td class="col--email">{{ udoc.mail }}</td>
+          <td class="col--major">{{ udoc.major or '-' }}</td>
+          <td class="col--class">{{ udoc.class or '-' }}</td>
+          <td class="col--regtype">
+            {% if isUnified %}
+              <span class="badge badge--blue">{{ _('Unified Registration') }}</span>
             {% else %}
-              -
-            {% endif %}
-          </td>
-          <td class="col--loginat">
-            {% if udoc.loginat %}
-              {{ moment(udoc.loginat).format('YYYY-MM-DD HH:mm') }}
-            {% else %}
-              -
+              <span class="badge badge--yellow">{{ _('Self Registration') }}</span>
             {% endif %}
           </td>
           <td class="col--priv">
@@ -103,13 +134,6 @@
             {% endif %}
             <br><small class="text-gray">{{ udoc.priv }}</small>
           </td>
-          <td class="col--status">
-            {% if udoc.priv == 0 %}
-              <span class="text-red">{{ _('Banned') }}</span>
-            {% else %}
-              <span class="text-green">{{ _('Active') }}</span>
-            {% endif %}
-          </td>
           <td class="col--actions">
             <a href="{{ url('user_manage_detail', uid=udoc._id) }}" class="button button--small">
               {{ _('Edit') }}
@@ -120,28 +144,60 @@
       </tbody>
     </table>
   </div>
-  
-  <!-- 分页 -->
+
   {% if upcount > 50 %}
   <div class="section__body">
-    <div class="row">
-      <div class="columns">
-        {% include "components/paginator.html" %}
-      </div>
-    </div>
+    <div class="row"><div class="columns">
+      {% include "components/paginator.html" %}
+    </div></div>
   </div>
   {% endif %}
 </div>
 
+<!-- 新建分组对话框 -->
+<div id="create-group-dialog" class="um-dialog" style="display:none;">
+  <div class="dialog__content">
+    <p><label>{{ _('Group name') }}:</label></p>
+    <p><input type="text" id="new-group-name" class="textbox" placeholder="{{ _('Enter group name') }}"></p>
+  </div>
+  <div class="dialog__footer">
+    <button id="confirm-create-group" class="rounded primary button">{{ _('Create Group') }}</button>
+    <button id="cancel-create-group" class="rounded button">{{ _('Cancel') }}</button>
+  </div>
+</div>
+
+<!-- 加入分组对话框 -->
+<div id="add-to-group-dialog" class="um-dialog" style="display:none;">
+  <div class="dialog__content">
+    <p><label>{{ _('Group name') }}:</label></p>
+    <p><select id="select-group-target" class="textbox">
+      <option value="">{{ _('Select a group') }}...</option>
+      {% for g in groups %}
+      <option value="{{ g.name }}">{{ g.name }} ({{ g.count }})</option>
+      {% endfor %}
+    </select></p>
+  </div>
+  <div class="dialog__footer">
+    <button id="confirm-add-to-group" class="rounded primary button">{{ _('Add to Group') }}</button>
+    <button id="cancel-add-to-group" class="rounded button">{{ _('Cancel') }}</button>
+  </div>
+</div>
+
+<!-- 隐藏导出表单 -->
+<form id="hidden-export-form" method="post" action="{{ url('user_manage_export') }}" style="display:none;">
+  <input type="hidden" name="uids" id="export-uids-input">
+</form>
+
 <style>
-.col--uid { width: 80px; }
-.col--user { width: 150px; }
-.col--email { width: 200px; }
-.col--regat { width: 120px; }
-.col--loginat { width: 120px; }
-.col--priv { width: 100px; }
-.col--status { width: 80px; }
-.col--actions { width: 100px; }
+.col--cb { width: 34px; text-align: center; }
+.col--uid { width: 60px; }
+.col--user { width: 130px; }
+.col--email { width: 170px; }
+.col--major { width: 85px; }
+.col--class { width: 95px; }
+.col--regtype { width: 80px; }
+.col--priv { width: 80px; }
+.col--actions { width: 60px; }
 
 .badge {
   display: inline-block;
@@ -155,29 +211,183 @@
   vertical-align: baseline;
   border-radius: 3px;
 }
-
 .badge--red { background-color: #d9534f; }
 .badge--blue { background-color: #5bc0de; }
 .badge--green { background-color: #5cb85c; }
 .badge--gray { background-color: #777; }
 .badge--yellow { background-color: #f0ad4e; }
 .badge--purple { background-color: #9b59b6; }
-
 .text-red { color: #d9534f; }
 .text-green { color: #5cb85c; }
 .text-gray { color: #777; }
+.button--small { padding: 4px 8px; font-size: 12px; }
 
-.button--small {
-  padding: 4px 8px;
-  font-size: 12px;
+.group-tag {
+  display: inline-block;
+  padding: 4px 12px;
+  margin: 0 2px;
+  border: 1px solid #ccc;
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+  user-select: none;
 }
+.group-tag:hover { border-color: #5bc0de; background: #f0f9ff; }
+.group-tag.active { background: #337ab7; border-color: #337ab7; color: #fff; }
+
+.um-dialog {
+  position: fixed; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff; border: 1px solid #ddd;
+  border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,.2);
+  z-index: 10000; min-width: 340px; padding: 20px;
+}
+.dialog__footer { text-align: right; margin-top: 12px; }
+.dialog__footer button { margin-left: 8px; }
+
+#selected-count { font-weight: bold; color: #337ab7; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+.user-row { cursor: pointer; }
+.user-row:hover { background: #f8f9fa; }
 </style>
 
 <script>
-$(document).ready(function() {
-  // 排序功能：当选择框改变时自动提交表单
-  $('select[name="sort"]').on('change', function() {
-    $(this).closest('form').submit();
+$(function() {
+  var selectedUids = {};
+  var currentGroup = '{{ group }}';
+
+  function updateToolbar() {
+    var count = Object.keys(selectedUids).length;
+    if (count > 0) {
+      $('#selected-count').text(count + ' users selected').show();
+      $('#export-selected-btn').prop('disabled', false);
+      $('#deselect-all-btn').show();
+      $('#add-to-group-btn').prop('disabled', false);
+    } else {
+      $('#selected-count').hide();
+      $('#export-selected-btn').prop('disabled', true);
+      $('#deselect-all-btn').hide();
+      $('#add-to-group-btn').prop('disabled', true);
+    }
+  }
+
+  // 点击行切换复选框
+  $('#user-table tbody').on('click', 'tr', function(e) {
+    if ($(e.target).is('a, button, input')) return;
+    var cb = $(this).find('.user-checkbox');
+    cb.prop('checked', !cb.prop('checked')).trigger('change');
+  });
+
+  // 单个复选框
+  $(document).on('change', '.user-checkbox', function() {
+    var uid = $(this).data('uid');
+    if ($(this).prop('checked')) selectedUids[uid] = true;
+    else delete selectedUids[uid];
+    $('#select-all-checkbox').prop('checked', $('.user-checkbox:checked').length === $('.user-checkbox').length);
+    updateToolbar();
+  });
+
+  // 全选/取消
+  $('#select-all-checkbox').on('change', function() {
+    var checked = $(this).prop('checked');
+    $('.user-checkbox').each(function() {
+      $(this).prop('checked', checked);
+      if (checked) selectedUids[$(this).data('uid')] = true;
+      else delete selectedUids[$(this).data('uid')];
+    });
+    updateToolbar();
+  });
+
+  $('#deselect-all-btn').on('click', function() {
+    selectedUids = {};
+    $('.user-checkbox').prop('checked', false);
+    $('#select-all-checkbox').prop('checked', false);
+    updateToolbar();
+  });
+
+  // ========== 导出 ==========
+  $('#export-selected-btn').on('click', function() {
+    var uids = Object.keys(selectedUids).map(Number);
+    if (uids.length === 0) return;
+    $('#export-uids-input').val(JSON.stringify(uids));
+    $('#hidden-export-form').submit();
+  });
+
+  // ========== 分组筛选 ==========
+  $(document).on('click', '.group-tag', function() {
+    var name = $(this).data('group');
+    $('.group-tag').removeClass('active');
+    $(this).addClass('active');
+    $('#search-group-input').val(name);
+    window.location.href = '{{ url('user_manage_main') }}' + (name ? '?group=' + encodeURIComponent(name) : '');
+  });
+
+  if (currentGroup) {
+    $('.group-tag').removeClass('active');
+    $('.group-tag[data-group="' + currentGroup + '"]').addClass('active');
+    $('#delete-group-btn').show();
+  }
+
+  // ========== 新建分组 ==========
+  $('#create-group-btn').on('click', function() {
+    $('#create-group-dialog').show(); $('#new-group-name').focus();
+  });
+  $('#cancel-create-group').on('click', function() {
+    $('#create-group-dialog').hide(); $('#new-group-name').val('');
+  });
+  $('#confirm-create-group').on('click', function() {
+    var name = $('#new-group-name').val().trim();
+    if (!name) return;
+    $.post('{{ url('user_manage_groups') }}', { operation: 'create', name: name }, function() {
+      location.reload();
+    });
+  });
+  $('#new-group-name').on('keydown', function(e) {
+    if (e.key === 'Enter') $('#confirm-create-group').click();
+    if (e.key === 'Escape') $('#cancel-create-group').click();
+  });
+
+  // ========== 删除分组 ==========
+  $('#delete-group-btn').on('click', function() {
+    if (!currentGroup) return;
+    if (!confirm('Delete group "' + currentGroup + '"?')) return;
+    $.post('{{ url('user_manage_groups') }}', { operation: 'delete', name: currentGroup }, function() {
+      location.href = '{{ url('user_manage_main') }}';
+    });
+  });
+
+  // ========== 加入分组 ==========
+  $('#add-to-group-btn').on('click', function() {
+    var sel = $('#select-group-target');
+    sel.find('option:not(:first)').remove();
+    $('.group-tag').each(function() {
+      var n = $(this).data('group');
+      if (n) sel.append('<option value="' + n + '">' + n + '</option>');
+    });
+    $('#add-to-group-dialog').show();
+  });
+  $('#cancel-add-to-group').on('click', function() {
+    $('#add-to-group-dialog').hide();
+  });
+  $('#confirm-add-to-group').on('click', function() {
+    var g = $('#select-group-target').val();
+    var uids = Object.keys(selectedUids).map(Number);
+    if (!g || uids.length === 0) return;
+    $.post('{{ url('user_manage_groups') }}', {
+      operation: 'addUsers', name: g, uids: JSON.stringify(uids)
+    }, function() { location.reload(); });
+  });
+
+  // ========== 排序 ==========
+  $('#sort-select').on('change', function() { $(this).closest('form').submit(); });
+
+  // 快捷键 Ctrl+A
+  $(document).on('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'a' && document.activeElement === document.body) {
+      e.preventDefault();
+      $('#select-all-checkbox').prop('checked', true).trigger('change');
+    }
   });
 });
 </script>
