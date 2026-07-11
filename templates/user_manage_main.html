@@ -8,14 +8,14 @@
     <h1 class="section__title">{{ _('User Management') }}</h1>
     <div class="section__tools" id="toolbar">
       <span id="selected-count" class="um-selected-count" style="display:none"></span>
-      <button id="export-selected-btn" class="rounded button" disabled>
+      <button type="button" id="export-selected-btn" class="rounded button" disabled>
         <span class="icon icon-download"></span> {{ _('Export Selected') }}
       </button>
-      <button id="deselect-all-btn" class="rounded button" style="display:none">
+      <button type="button" id="deselect-all-btn" class="rounded button" style="display:none">
         {{ _('Deselect All') }}
       </button>
       {% if className %}
-      <button id="select-class-btn" class="rounded button" title="{{ classUids|length }} users">
+      <button type="button" id="select-class-btn" class="rounded button" title="{{ classUids|length }} users">
         {{ _('Select All Filtered') }}
       </button>
       {% endif %}
@@ -32,13 +32,13 @@
         {{ g.name }} ({{ g.count }})
       </span>
       {% endfor %}
-      <button id="create-group-btn" class="rounded button button--small">
+      <button type="button" id="create-group-btn" class="rounded button button--small">
         <span class="icon icon-add"></span> {{ _('Create Group') }}
       </button>
-      <button id="add-to-group-btn" class="rounded button button--small" disabled>
+      <button type="button" id="add-to-group-btn" class="rounded button button--small" disabled>
         {{ _('Add to Group') }}
       </button>
-      <button id="delete-group-btn" class="rounded button button--small" style="display:none">
+      <button type="button" id="delete-group-btn" class="rounded button button--small" style="display:none">
         <span class="icon icon-delete"></span> {{ _('Delete Group') }}
       </button>
     </div>
@@ -171,8 +171,8 @@
   <div><label>{{ _('Group name') }}:</label></div>
   <div style="margin-top:8px"><input type="text" id="new-group-name" class="textbox" placeholder="{{ _('Enter group name') }}"></div>
   <div style="margin-top:16px;text-align:right">
-    <button id="confirm-create-group" class="rounded primary button">{{ _('Create Group') }}</button>
-    <button id="cancel-create-group" class="rounded button">{{ _('Cancel') }}</button>
+    <button type="button" id="confirm-create-group" class="rounded primary button">{{ _('Create Group') }}</button>
+    <button type="button" id="cancel-create-group" class="rounded button">{{ _('Cancel') }}</button>
   </div>
 </div>
 
@@ -186,8 +186,8 @@
     {% endfor %}
   </select></div>
   <div style="margin-top:16px;text-align:right">
-    <button id="confirm-add-to-group" class="rounded primary button">{{ _('Add to Group') }}</button>
-    <button id="cancel-add-to-group" class="rounded button">{{ _('Cancel') }}</button>
+    <button type="button" id="confirm-add-to-group" class="rounded primary button">{{ _('Add to Group') }}</button>
+    <button type="button" id="cancel-add-to-group" class="rounded button">{{ _('Cancel') }}</button>
   </div>
 </div>
 
@@ -230,7 +230,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </style>
 
 <script>
-$(function(){
+/* ui-default 在 DOM 就绪后异步暴露全局 jQuery；不能在此处直接访问 $。 */
+(function waitForHydroUI(){
+  if (!window.HydroExports || !window.$) {
+    setTimeout(waitForHydroUI, 10);
+    return;
+  }
+  var $ = window.$;
+  (function(){
   var currentGroup = '{{ group }}';
   var selected = {}; // uid -> true
 
@@ -395,6 +402,7 @@ $(function(){
 
   /* ====== 排序 ====== */
   $('#sort-select').on('change', function(){ $(this).closest('form').submit(); });
-});
+  })();
+})();
 </script>
 {% endblock %}
