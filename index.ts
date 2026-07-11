@@ -38,12 +38,6 @@ function getRegistrationType(udoc: any): string {
     return '主动注册';
 }
 
-function createKeywordRegex(keyword: string) {
-    const terms = keyword.trim().split(/\s+/).filter(Boolean)
-        .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    return new RegExp(terms.join('.*'), 'i');
-}
-
 type ImportUser = {
     uname: string;
     mail: string;
@@ -115,12 +109,14 @@ class UserManageMainHandler extends UserManageHandler {
 
         // 分组筛选
         if (group) {
-            const gdocs = await UserModel.listGroup(domainId, undefined, [group]);
-            if (gdocs.length > 0 && gdocs[0].uids.length > 0) {
-                query._id = { $in: gdocs[0].uids };
+            if (group.startsWith('专业：')) {
+                query.major = group.slice(3);
+            } else if (group.startsWith('班级：')) {
+                query.class = group.slice(3);
             } else {
-                // 分组为空，直接返回空结果
-                query._id = { $in: [] };
+                const gdocs = await UserModel.listGroup(domainId, undefined, [group]);
+                if (gdocs.length > 0 && gdocs[0].uids.length > 0) query._id = { $in: gdocs[0].uids };
+                else query._id = { $in: [] };
             }
         }
 
@@ -130,12 +126,10 @@ class UserManageMainHandler extends UserManageHandler {
 
         // 搜索功能
         if (search) {
-            const searchRegex = createKeywordRegex(search);
+            const searchRegex = new RegExp(search, 'i');
             const searchQuery: any[] = [
                 { unameLower: searchRegex },
                 { mailLower: searchRegex },
-                { major: searchRegex },
-                { class: searchRegex },
                 { _id: isNaN(+search) ? undefined : +search }
             ].filter(Boolean);
             if (query._id) {
@@ -155,9 +149,7 @@ class UserManageMainHandler extends UserManageHandler {
             'priv': { priv: -1 }
         };
 
-        const sortQuery = search && sort === '_id'
-            ? { major: 1, class: 1, _id: 1 }
-            : sortOptions[sort] || { _id: 1 };
+        const sortQuery = sortOptions[sort] || { _id: 1 };
 
         // 获取用户列表
         const [udocs, upcount] = await this.paginate(
@@ -306,10 +298,11 @@ async function syncAttributeGroups(domainId: string) {
     const additions = new Map<string, number[]>();
     const users = await UserModel.getMulti({}).toArray();
     for (const user of users) {
+        const uid = user._id;
         const major = user.major?.trim();
         const className = user.class?.trim();
-        if (major) additions.set(`专业：${major}`, [...(additions.get(`专业：${major}`) || []), user.uid]);
-        if (className) additions.set(`班级：${className}`, [...(additions.get(`班级：${className}`) || []), user.uid]);
+        if (major) additions.set(`专业：${major}`, [...(additions.get(`专业：${major}`) || []), uid]);
+        if (className) additions.set(`班级：${className}`, [...(additions.get(`班级：${className}`) || []), uid]);
     }
     const existing = await UserModel.listGroup(domainId);
     for (const group of existing.filter((item) => item.name.startsWith('专业：') || item.name.startsWith('班级：'))) {
