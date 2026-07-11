@@ -167,7 +167,7 @@
     </table>
   </div>
 
-  {% if upcount > 50 %}
+  {% if upcount > 15 %}
   <div class="section__body">
     <div class="row"><div class="columns">
       {% include "components/paginator.html" %}
@@ -202,15 +202,15 @@
 </div>
 
 <style>
-.col--cb { width: 112px; min-width:112px; text-align:center; }
-.col--uid { min-width: 90px; white-space:nowrap; }
-.col--user { min-width: 150px; }
-.col--email { min-width: 210px; }
-.col--major { min-width: 150px; width:auto; white-space:nowrap; }
-.col--class { min-width: 150px; width:auto; white-space:nowrap; }
-.col--regtype { min-width: 100px; }
-.col--priv { width: 80px; }
-.col--actions { min-width: 84px; text-align:center; }
+.col--cb { width:110px; }
+.col--uid { width:100px; }
+.col--user { width:190px; }
+.col--email { width:240px; }
+.col--major { width:220px; }
+.col--class { width:220px; }
+.col--regtype { width:110px; }
+.col--priv { width:100px; }
+.col--actions { width:100px; }
 
 .badge {
   display:inline-block;padding:2px 6px;font-size:11px;font-weight:bold;line-height:1;
@@ -227,11 +227,13 @@
 .um-group-select{display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap;font-size:13px}
 .um-group-select select{width:auto;max-width:none;height:32px}
 .um-table-wrap{overflow-x:auto}
-#user-table{width:max-content;min-width:100%;table-layout:auto}
-#user-table th,#user-table td{vertical-align:middle}
-#user-table th:not(.col--cb):not(.col--actions),
-#user-table td:not(.col--cb):not(.col--actions){text-align:left!important;padding-left:12px;padding-right:12px}
-#user-table .col--cb,#user-table .col--actions{text-align:center!important}
+#user-table{width:1490px;table-layout:fixed}
+#user-table.data-table > thead > tr > th,#user-table.data-table > tbody > tr > td{vertical-align:middle;padding:9px 12px;overflow-wrap:anywhere;word-break:break-word}
+#user-table.data-table > thead > tr > th:not(.col--cb):not(.col--actions),
+#user-table.data-table > tbody > tr > td:not(.col--cb):not(.col--actions){text-align:left!important}
+#user-table.data-table > thead > tr > th.col--cb,#user-table.data-table > tbody > tr > td.col--cb,
+#user-table.data-table > thead > tr > th.col--actions,#user-table.data-table > tbody > tr > td.col--actions{text-align:center!important}
+#user-table .col--uid,#user-table .col--regtype,#user-table .col--priv,#user-table .col--actions{white-space:nowrap}
 .data-table .button{white-space:nowrap;text-align:center}
 .select-all-wrap{display:flex;min-height:42px;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px}
 .select-all-wrap .um-selected-count{font-size:12px;line-height:1.2;white-space:nowrap;margin:0;color:#337ab7}

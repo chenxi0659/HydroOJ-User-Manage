@@ -104,7 +104,7 @@ class UserManageMainHandler extends UserManageHandler {
     @param('major', Types.String, true)
     @param('class', Types.String, true)
     async get(domainId: string, page = 1, search = '', sort = '_id', group = '', major = '', className = '') {
-        const limit = 50;
+        const limit = 15;
         const query: any = {};
 
         // 分组筛选
