@@ -1,6 +1,6 @@
 import {
     Context, Handler, param, PRIV, Types, UserModel, DomainModel,
-    ValidationError, UserNotFoundError, PermissionError, SystemModel, moment
+    ValidationError, UserNotFoundError, PermissionError, SystemModel, TokenModel, moment
 } from 'hydrooj';
 
 declare module 'hydrooj' {
@@ -46,6 +46,8 @@ type ImportUser = {
     password: string;
     school?: string;
     bio?: string;
+    realName?: string;
+    studentId?: string;
     major?: string;
     class?: string;
 };
@@ -60,6 +62,8 @@ function parseImportUsers(raw: string): ImportUser[] {
             password: String(user.password || ''),
             school: String(user.school || '').trim(),
             bio: String(user.bio || '').trim(),
+            realName: String(user.realName || '').trim(),
+            studentId: String(user.studentId || '').trim(),
             major: String(user.major || '').trim(),
             class: String(user.class || '').trim(),
         }));
@@ -413,7 +417,8 @@ class UserManageImportHandler extends UserManageHandler {
         for (const user of users) {
             const uid = await UserModel.create(user.mail, user.uname, user.password, undefined, this.request.ip, defaultPriv);
             await UserModel.setById(uid, {
-                school: user.school || '', bio: user.bio || '', major: user.major || '', class: user.class || '',
+                school: user.school || '', bio: user.bio || '', realName: user.realName || '',
+                studentId: user.studentId || '', major: user.major || '', class: user.class || '',
             });
             created.push({ ...user, uid });
         }
@@ -461,10 +466,12 @@ class UserManageDetailHandler extends UserManageHandler {
     @param('uname', Types.Username, true)
     @param('school', Types.String, true)
     @param('bio', Types.Content, true)
+    @param('realName', Types.String, true)
+    @param('studentId', Types.String, true)
     @param('major', Types.String, true)
     @param('class', Types.String, true)
     @param('registrationType', Types.String, true)
-    async postEdit(domainId: string, uid: number, mail?: string, uname?: string, school?: string, bio?: string, major?: string, newClass?: string, registrationType?: string) {
+    async postEdit(domainId: string, uid: number, mail?: string, uname?: string, school?: string, bio?: string, realName?: string, studentId?: string, major?: string, newClass?: string, registrationType?: string) {
         const udoc = await UserModel.getById(domainId, uid);
         if (!udoc) throw new UserNotFoundError(uid);
 
@@ -487,6 +494,8 @@ class UserManageDetailHandler extends UserManageHandler {
         const updates: any = {};
         if (school !== undefined) updates.school = school;
         if (bio !== undefined) updates.bio = bio;
+        if (realName !== undefined) updates.realName = realName.trim();
+        if (studentId !== undefined) updates.studentId = studentId.trim();
         if (major !== undefined) updates.major = major.trim();
         if (newClass !== undefined) updates.class = newClass.trim();
         if (registrationType !== undefined) {
@@ -571,6 +580,94 @@ class UserManageDetailHandler extends UserManageHandler {
     }
 }
 
+// ==================== 账户设置资料与登录凭据 ====================
+
+class UserManageAccountHandler extends Handler {
+    async prepare() {
+        this.checkPriv(PRIV.PRIV_USER_PROFILE);
+    }
+
+    async getCurrentProfile() {
+        const profile = await UserModel.coll.findOne({ _id: this.user._id });
+        if (!profile) throw new UserNotFoundError(this.user._id);
+        return profile;
+    }
+}
+
+class UserManageAccountProfileHandler extends UserManageAccountHandler {
+    async get() {
+        const profile: any = await this.getCurrentProfile();
+        const defaultPriv = await SystemModel.get('default.priv');
+        this.response.body = {
+            uname: profile.uname,
+            realName: profile.realName || '',
+            studentId: profile.studentId || '',
+            major: profile.major || '',
+            className: profile.class || '',
+            showRealNameOnProfile: !!profile.showRealNameOnProfile,
+            readOnly: this.user._id <= 0 || profile.priv === defaultPriv,
+        };
+    }
+
+    @param('realName', Types.String, true)
+    @param('studentId', Types.String, true)
+    @param('major', Types.String, true)
+    @param('class', Types.String, true)
+    @param('showRealNameOnProfile', Types.Boolean, true)
+    async post(domainId: string, realName?: string, studentId?: string, major?: string, className?: string, showRealNameOnProfile?: boolean) {
+        const profile: any = await this.getCurrentProfile();
+        const defaultPriv = await SystemModel.get('default.priv');
+        const isDefaultUser = this.user._id <= 0 || profile.priv === defaultPriv;
+        const updates: any = {};
+
+        if (showRealNameOnProfile !== undefined) updates.showRealNameOnProfile = showRealNameOnProfile;
+        if (isDefaultUser) {
+            const attemptedProtectedChange = [
+                ['realName', realName], ['studentId', studentId], ['major', major], ['class', className],
+            ].some(([key, value]) => value !== undefined && String(value).trim() !== String(profile[key] || ''));
+            if (attemptedProtectedChange) throw new PermissionError('Default users cannot edit academic profile');
+        } else {
+            if (realName !== undefined) updates.realName = realName.trim();
+            if (studentId !== undefined) updates.studentId = studentId.trim();
+            if (major !== undefined) updates.major = major.trim();
+            if (className !== undefined) updates.class = className.trim();
+        }
+
+        if (Object.keys(updates).length) {
+            await UserModel.setById(this.user._id, updates);
+            if ('major' in updates || 'class' in updates) await syncAttributeGroups(domainId);
+        }
+        this.response.body = { success: true };
+    }
+}
+
+class UserManageAccountUsernameHandler extends UserManageAccountHandler {
+    @param('uname', Types.Username)
+    @param('currentPassword', Types.String)
+    async post(domainId: string, uname: string, currentPassword: string) {
+        await this.user.checkPassword(currentPassword);
+        if (uname !== this.user.uname) {
+            const existing = await UserModel.getByUname(domainId, uname);
+            if (existing && existing._id !== this.user._id) throw new ValidationError('uname', 'Username already in use');
+            await UserModel.setUname(this.user._id, uname);
+        }
+        this.response.body = { success: true };
+    }
+}
+
+class UserManageAccountPasswordHandler extends UserManageAccountHandler {
+    @param('currentPassword', Types.String)
+    @param('password', Types.Password)
+    @param('verifyPassword', Types.Password)
+    async post(_domainId: string, currentPassword: string, password: string, verifyPassword: string) {
+        if (password !== verifyPassword) throw new ValidationError('verifyPassword', 'Passwords do not match');
+        await this.user.checkPassword(currentPassword);
+        await UserModel.setPassword(this.user._id, password);
+        await TokenModel.delByUid(this.user._id);
+        this.response.body = { success: true, relogin: true, loginUrl: this.url('user_login') };
+    }
+}
+
 
 // ==================== 插件入口 ====================
 
@@ -582,6 +679,9 @@ export async function apply(ctx: Context) {
     ctx.Route('user_manage_groups', '/manage/users/groups', UserManageGroupsHandler, PRIV.PRIV_EDIT_SYSTEM);
     ctx.Route('user_manage_auto_group', '/manage/users/auto-group', UserManageAutoGroupHandler, PRIV.PRIV_EDIT_SYSTEM);
     ctx.Route('user_manage_import', '/manage/users/import', UserManageImportHandler, PRIV.PRIV_EDIT_SYSTEM);
+    ctx.Route('user_manage_account_profile', '/home/account/profile', UserManageAccountProfileHandler, PRIV.PRIV_USER_PROFILE);
+    ctx.Route('user_manage_account_username', '/home/account/username', UserManageAccountUsernameHandler, PRIV.PRIV_USER_PROFILE);
+    ctx.Route('user_manage_account_password', '/home/account/password', UserManageAccountPasswordHandler, PRIV.PRIV_USER_PROFILE);
 
     // 页面路由
     ctx.Route('user_manage_main', '/manage/users', UserManageMainHandler, PRIV.PRIV_EDIT_SYSTEM);
@@ -589,6 +689,16 @@ export async function apply(ctx: Context) {
 
     // 注入控制面板菜单
     ctx.injectUI('ControlPanel', 'user_manage_main', { icon: 'user' });
+
+    // 将插件字段挂载到 Hydro 用户对象，使“我的资料”模板可直接读取。
+    ctx.on('user/get', (user: any) => {
+        const profile = user._udoc || {};
+        user.realName = profile.realName || '';
+        user.studentId = profile.studentId || '';
+        user.major = profile.major || '';
+        user.class = profile.class || '';
+        user.showRealNameOnProfile = !!profile.showRealNameOnProfile;
+    });
 
     // ==================== 国际化 ====================
 
@@ -629,6 +739,14 @@ export async function apply(ctx: Context) {
         'Set Privilege': '设置权限',
         'Status': '状态',
         'School': '学校',
+        'Real Name': '姓名',
+        'Student ID': '学号',
+        'Academic Information': '学籍信息',
+        'Show real name on profile': '在我的资料展示姓名',
+        'Login Credentials': '登录凭据',
+        'Current Password': '当前密码',
+        'New Password': '新密码',
+        'Repeat Password': '再次输入新密码',
         'Bio': '个人简介',
         'Never': '从未',
         'Not set': '未设置',
@@ -684,6 +802,8 @@ export async function apply(ctx: Context) {
         'Cannot delete the active administrator account': '不能删除当前正在操作的管理员账户',
         'Cannot delete root account': '不能删除 root 账户',
         'Invalid field': '无效的字段',
+        'Default users cannot edit academic profile': 'Default 用户不能修改学籍资料',
+        'Passwords do not match': '两次输入的新密码不一致',
         'Export completed': '导出完成',
         'Group created': '分组创建成功',
         'Group deleted': '分组已删除',
@@ -732,6 +852,14 @@ export async function apply(ctx: Context) {
         'Set Privilege': 'Set Privilege',
         'Status': 'Status',
         'School': 'School',
+        'Real Name': 'Real Name',
+        'Student ID': 'Student ID',
+        'Academic Information': 'Academic Information',
+        'Show real name on profile': 'Show real name on profile',
+        'Login Credentials': 'Login Credentials',
+        'Current Password': 'Current Password',
+        'New Password': 'New Password',
+        'Repeat Password': 'Repeat Password',
         'Bio': 'Bio',
         'Never': 'Never',
         'Not set': 'Not set',
@@ -787,6 +915,8 @@ export async function apply(ctx: Context) {
         'Cannot delete the active administrator account': 'Cannot delete the active administrator account',
         'Cannot delete root account': 'Cannot delete root account',
         'Invalid field': 'Invalid field',
+        'Default users cannot edit academic profile': 'Default users cannot edit academic profile',
+        'Passwords do not match': 'Passwords do not match',
         'Export completed': 'Export completed',
         'Group created': 'Group created',
         'Group deleted': 'Group deleted',

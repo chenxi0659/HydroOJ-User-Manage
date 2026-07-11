@@ -59,6 +59,20 @@
             </div>
             <div class="medium-12 columns">
               {{ form.form_text({
+                label: _('Real Name'),
+                name: 'realName',
+                value: profile.realName or ''
+              }) }}
+            </div>
+            <div class="medium-12 columns">
+              {{ form.form_text({
+                label: _('Student ID'),
+                name: 'studentId',
+                value: profile.studentId or ''
+              }) }}
+            </div>
+            <div class="medium-12 columns">
+              {{ form.form_text({
                 label: _('Registration Time'),
                 name: 'regat',
                 value: moment(udoc.regat).format('YYYY-MM-DD HH:mm:ss') if udoc.regat else '',

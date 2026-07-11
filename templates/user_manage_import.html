@@ -14,16 +14,16 @@
 
   <div class="section__body" id="csv-import-panel" style="display:none">
     <label>CSV 文本或文件</label>
-    <p class="help-text">支持表头：用户名、邮箱、密码、专业、班级。目前仅支持 CSV/TXT，不支持 Excel 文件。</p>
-    <textarea id="csv-text" rows="6" class="textbox" placeholder="用户名,邮箱,密码,专业,班级"></textarea>
+    <p class="help-text">支持表头：用户名、邮箱、密码、姓名、学号、专业、班级。目前仅支持 CSV/TXT，不支持 Excel 文件。</p>
+    <textarea id="csv-text" rows="6" class="textbox" placeholder="用户名,邮箱,密码,姓名,学号,专业,班级"></textarea>
     <input type="file" id="csv-file" accept=".csv,.txt,text/csv,text/plain">
     <button type="button" id="parse-csv-btn" class="rounded button">解析并加入待确认名单</button>
   </div>
 
   <div class="section__body no-padding">
     <table class="data-table" id="pending-users-table">
-      <thead><tr><th>用户名</th><th>邮箱</th><th>专业</th><th>班级</th><th>注册类型</th><th>权限</th><th>操作</th></tr></thead>
-      <tbody><tr class="empty"><td colspan="7">暂无待确认用户</td></tr></tbody>
+      <thead><tr><th>用户名</th><th>邮箱</th><th>姓名</th><th>学号</th><th>专业</th><th>班级</th><th>注册类型</th><th>权限</th><th>操作</th></tr></thead>
+      <tbody><tr class="empty"><td colspan="9">暂无待确认用户</td></tr></tbody>
     </table>
   </div>
   <div class="section__body">
@@ -36,7 +36,8 @@
   <h2>添加用户</h2>
   <form id="add-user-form">
     <div class="row"><div class="medium-6 columns"><label>用户名<input name="uname" required></label></div><div class="medium-6 columns"><label>邮箱<input name="mail" type="email" required></label></div></div>
-    <div class="row"><div class="medium-6 columns"><label>初始密码<input name="password" type="password" required></label></div><div class="medium-6 columns"><label>学校<input name="school"></label></div></div>
+    <div class="row"><div class="medium-6 columns"><label>初始密码<input name="password" type="password" required></label></div><div class="medium-6 columns"><label>姓名<input name="realName"></label></div></div>
+    <div class="row"><div class="medium-6 columns"><label>学号<input name="studentId"></label></div><div class="medium-6 columns"><label>学校<input name="school"></label></div></div>
     <div class="row"><div class="medium-6 columns"><label>专业<input name="major"></label></div><div class="medium-6 columns"><label>班级<input name="class"></label></div></div>
     <label>个人简介<textarea name="bio" rows="2"></textarea></label>
     <div style="text-align:right"><button type="submit" class="rounded primary button">加入待确认名单</button><button type="button" id="cancel-add-user-btn" class="rounded button">取消</button></div>
@@ -64,12 +65,12 @@
       .then(function(res) { return res.json().then(function(body) { if (!res.ok || body.error) throw new Error((body.error && body.error.message) || res.statusText); return body; }); });
   }
   function render() {
-    if (!pending.length) $table.html('<tr class="empty"><td colspan="7">暂无待确认用户</td></tr>');
-    else $table.html(pending.map(function(user, index) { return '<tr><td>' + escape(user.uname) + '</td><td>' + escape(user.mail) + '</td><td>' + escape(user.major) + '</td><td>' + escape(user.class) + '</td><td>' + registrationType(user) + '</td><td>Default (' + defaultPriv + ')</td><td><button type="button" class="rounded button pending-delete" data-index="' + index + '">删除</button></td></tr>'; }).join(''));
+    if (!pending.length) $table.html('<tr class="empty"><td colspan="9">暂无待确认用户</td></tr>');
+    else $table.html(pending.map(function(user, index) { return '<tr><td>' + escape(user.uname) + '</td><td>' + escape(user.mail) + '</td><td>' + escape(user.realName) + '</td><td>' + escape(user.studentId) + '</td><td>' + escape(user.major) + '</td><td>' + escape(user.class) + '</td><td>' + registrationType(user) + '</td><td>Default (' + defaultPriv + ')</td><td><button type="button" class="rounded button pending-delete" data-index="' + index + '">删除</button></td></tr>'; }).join(''));
     $('#confirm-users-btn').prop('disabled', !pending.length);
   }
   function addUsers(users) {
-    pending.push.apply(pending, users.map(function(user) { return { uname: String(user.uname || '').trim(), mail: String(user.mail || '').trim(), password: String(user.password || ''), school: String(user.school || '').trim(), bio: String(user.bio || '').trim(), major: String(user.major || '').trim(), class: String(user.class || '').trim() }; }));
+    pending.push.apply(pending, users.map(function(user) { return { uname: String(user.uname || '').trim(), mail: String(user.mail || '').trim(), password: String(user.password || ''), school: String(user.school || '').trim(), bio: String(user.bio || '').trim(), realName: String(user.realName || '').trim(), studentId: String(user.studentId || '').trim(), major: String(user.major || '').trim(), class: String(user.class || '').trim() }; }));
     render();
   }
   function parseCsv(text) {
@@ -79,7 +80,7 @@
     var header = rows[0].map(function(value) { return value.toLowerCase(); });
     var hasHeader = header.indexOf('用户名') >= 0 || header.indexOf('username') >= 0 || header.indexOf('邮箱') >= 0 || header.indexOf('email') >= 0;
     function column(names, fallback) { var found = header.findIndex(function(value) { return names.indexOf(value) >= 0; }); return found >= 0 ? found : fallback; }
-    return (hasHeader ? rows.slice(1) : rows).map(function(values) { return hasHeader ? { uname: values[column(['用户名', 'username', 'uname'], 0)], mail: values[column(['邮箱', 'email', 'mail'], 1)], password: values[column(['密码', 'password'], 2)], major: values[column(['专业', 'major'], 3)], class: values[column(['班级', 'class'], 4)] } : { uname: values[0], mail: values[1], password: values[2], major: values[3], class: values[4] }; });
+    return (hasHeader ? rows.slice(1) : rows).map(function(values) { return hasHeader ? { uname: values[column(['用户名', 'username', 'uname'], 0)], mail: values[column(['邮箱', 'email', 'mail'], 1)], password: values[column(['密码', 'password'], 2)], realName: values[column(['姓名', 'realname', 'real_name'], 3)], studentId: values[column(['学号', 'studentid', 'student_id'], 4)], major: values[column(['专业', 'major'], 5)], class: values[column(['班级', 'class'], 6)] } : { uname: values[0], mail: values[1], password: values[2], realName: values[3], studentId: values[4], major: values[5], class: values[6] }; });
   }
   $('#add-user-btn').on('click', function() { $('#add-user-form')[0].reset(); $('#add-user-dialog').show(); });
   $('#cancel-add-user-btn').on('click', function() { $('#add-user-dialog').hide(); });

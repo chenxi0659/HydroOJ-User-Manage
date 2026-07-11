@@ -115,7 +115,8 @@
         <col class="col--cb">
         <col class="col--uid">
         <col class="col--user">
-        <col class="col--email">
+        <col class="col--real-name">
+        <col class="col--student-id">
         <col class="col--major">
         <col class="col--class">
         <col class="col--regtype">
@@ -127,7 +128,8 @@
           <th class="col--cb"><div class="select-all-wrap"><span id="selected-count" class="um-selected-count" style="display:none"></span><input type="checkbox" id="select-all-cb"></div></th>
           <th class="col--uid" style="text-align:left!important;padding-left:12px!important">{{ _('User ID') }}</th>
           <th class="col--user" style="text-align:left!important;padding-left:12px!important">{{ _('Username') }}</th>
-          <th class="col--email" style="text-align:left!important;padding-left:12px!important">{{ _('Email') }}</th>
+          <th class="col--real-name" style="text-align:left!important;padding-left:12px!important">{{ _('Real Name') }}</th>
+          <th class="col--student-id" style="text-align:left!important;padding-left:12px!important">{{ _('Student ID') }}</th>
           <th class="col--major" style="text-align:left!important;padding-left:12px!important">{{ _('Major') }}</th>
           <th class="col--class" style="text-align:left!important;padding-left:12px!important">{{ _('Class') }}</th>
           <th class="col--regtype" style="text-align:left!important;padding-left:12px!important">{{ _('Registration Type') }}</th>
@@ -145,9 +147,10 @@
           </td>
           <td class="col--uid" style="text-align:left!important;padding-left:12px!important">{{ udoc._id }}</td>
           <td class="col--user" style="text-align:left!important;padding-left:12px!important">
-            {{ user.render_inline(udoc, badge=false) }}
+            <a class="typo-a" href="{{ url('user_manage_detail', uid=udoc._id) }}">{{ udoc.uname }}</a>
           </td>
-          <td class="col--email" style="text-align:left!important;padding-left:12px!important">{{ udoc.mail }}</td>
+          <td class="col--real-name" style="text-align:left!important;padding-left:12px!important">{{ udoc.realName or '' }}</td>
+          <td class="col--student-id" style="text-align:left!important;padding-left:12px!important">{{ udoc.studentId or '' }}</td>
           <td class="col--major" style="text-align:left!important;padding-left:12px!important">{{ udoc.major or '-' }}</td>
           <td class="col--class" style="text-align:left!important;padding-left:12px!important">{{ udoc.class or '-' }}</td>
           <td class="col--regtype" style="text-align:left!important;padding-left:12px!important">
@@ -235,10 +238,11 @@
 <style>
 .col--cb { width:110px; }
 .col--uid { width:100px; }
-.col--user { width:190px; }
-.col--email { width:240px; }
-.col--major { width:220px; }
-.col--class { width:220px; }
+.col--user { width:160px; }
+.col--real-name { width:140px; }
+.col--student-id { width:170px; }
+.col--major { width:190px; }
+.col--class { width:190px; }
 .col--regtype { width:110px; }
 .col--priv { width:100px; }
 .col--actions { width:100px; }
@@ -263,7 +267,7 @@
 .um-group-select{display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap;font-size:13px}
 .um-group-select select{width:auto;max-width:none;height:32px}
 .um-table-wrap{overflow-x:auto}
-.um-user-table{width:100%!important;min-width:1390px;table-layout:fixed!important}
+.um-user-table{width:100%!important;min-width:1470px;table-layout:fixed!important}
 .um-user-table.data-table > thead > tr > th,.um-user-table.data-table > tbody > tr > td{vertical-align:middle;padding:9px 12px!important;overflow:visible!important;text-overflow:clip!important;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;box-sizing:border-box}
 .um-user-table.data-table > thead > tr > th:not(.col--cb):not(.col--actions),
 .um-user-table.data-table > tbody > tr > td:not(.col--cb):not(.col--actions){text-align:left!important}
