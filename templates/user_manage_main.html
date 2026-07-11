@@ -1,15 +1,16 @@
 {% import "components/user.html" as user with context %}
 {% import "components/sidemenu.html" as sidemenu with context %}
 {% import "components/paginator.html" as paginator with context %}
-{% extends "user_manage_wide_base.html" %}
+{% extends "manage_base.html" %}
 
 {% block manage_content %}
 <div class="section">
-  <div class="section__header um-page-header">
+  <div class="section__header">
     <h1 class="section__title">{{ _('User Management') }}</h1>
+  </div>
+  <div class="section__body um-actions-panel">
     <div class="section__tools" id="toolbar">
       <div class="um-toolbar-group">
-        <a href="{{ url('manage') }}" class="rounded button">返回控制面板</a>
         <a href="{{ url('user_manage_import') }}" class="rounded primary button">
           <span class="icon icon-add"></span> 添加用户
         </a>
@@ -254,14 +255,12 @@
 .text-gray{color:#888}
 .button--small{padding:4px 8px;font-size:12px}
 
-.user-manage-wide-layout{width:calc(100% - 30px);max-width:1440px}
-.um-page-header{display:flex;align-items:flex-start;gap:16px}
-.um-page-header .section__title{padding-top:8px;white-space:nowrap}
-.section__tools{display:flex;flex:1;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
-.um-toolbar-group{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px}
-.um-toolbar-group--batch{padding:6px 8px;border:1px solid #d9e2ef;border-radius:7px;background:#f8fafc}
+.um-actions-panel{padding-top:12px!important;padding-bottom:12px!important;background:#fbfcfe;border-bottom:1px solid #e2e8f0}
+.section__tools{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;width:100%}
+.um-toolbar-group{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:8px;min-width:0}
+.um-toolbar-group--batch{padding:8px 10px;border:1px solid #d9e2ef;border-radius:7px;background:#f8fafc}
 .um-toolbar-label{font-size:12px;font-weight:bold;color:#64748b;white-space:nowrap}
-.um-toolbar-group--selection{padding-left:8px;border-left:1px solid #d9e2ef}
+.um-toolbar-group--selection{padding-left:10px;border-left:1px solid #d9e2ef}
 .um-filter-row{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px}
 .um-group-select{display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap;font-size:13px}
 .um-group-select select{width:auto;max-width:none;height:32px}
@@ -291,14 +290,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #select-all-cb{margin:0}
 
 @media (max-width: 1100px){
-  .user-manage-wide-layout{width:auto;max-width:980px}
-  .um-page-header{flex-direction:column;align-items:stretch}
-  .um-page-header .section__title{padding-top:0}
   .section__tools{justify-content:flex-start}
 }
 
 @media (max-width: 640px){
-  .user-manage-wide-layout{width:auto}
   .um-toolbar-group,.section__tools{justify-content:flex-start}
   .um-toolbar-group--selection{padding-left:0;border-left:0}
 }
