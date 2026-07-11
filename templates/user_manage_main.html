@@ -1,36 +1,44 @@
 {% import "components/user.html" as user with context %}
 {% import "components/sidemenu.html" as sidemenu with context %}
 {% import "components/paginator.html" as paginator with context %}
-{% extends "manage_base.html" %}
+{% extends "user_manage_wide_base.html" %}
 
 {% block manage_content %}
 <div class="section">
-  <div class="section__header">
+  <div class="section__header um-page-header">
     <h1 class="section__title">{{ _('User Management') }}</h1>
     <div class="section__tools" id="toolbar">
-      <a href="{{ url('user_manage_import') }}" class="rounded primary button">
-        <span class="icon icon-add"></span> 添加用户
-      </a>
-      <button type="button" id="auto-group-btn" class="rounded button">自动分组</button>
-      <button type="button" id="export-selected-btn" class="rounded button" disabled>
-        <span class="icon icon-download"></span> {{ _('Export Selected') }}
-      </button>
-      <button type="button" id="delete-selected-btn" class="rounded button alert" disabled>
-        <span class="icon icon-delete"></span> {{ _('Delete Selected') }}
-      </button>
-      <button type="button" id="clear-selected-major-btn" class="rounded button" disabled>
-        {{ _('Clear Selected Major') }}
-      </button>
-      <button type="button" id="clear-selected-class-btn" class="rounded button" disabled>
-        {{ _('Clear Selected Class') }}
-      </button>
-      <button type="button" id="deselect-all-btn" class="rounded button" style="display:none">
-        {{ _('Deselect All') }}
-      </button>
+      <div class="um-toolbar-group">
+        <a href="{{ url('manage') }}" class="rounded button">返回控制面板</a>
+        <a href="{{ url('user_manage_import') }}" class="rounded primary button">
+          <span class="icon icon-add"></span> 添加用户
+        </a>
+        <button type="button" id="auto-group-btn" class="rounded button">自动分组</button>
+      </div>
+      <div class="um-toolbar-group um-toolbar-group--batch">
+        <span class="um-toolbar-label">批量操作</span>
+        <button type="button" id="export-selected-btn" class="rounded button" disabled>
+          <span class="icon icon-download"></span> {{ _('Export Selected') }}
+        </button>
+        <button type="button" id="clear-selected-major-btn" class="rounded button" disabled>
+          {{ _('Clear Selected Major') }}
+        </button>
+        <button type="button" id="clear-selected-class-btn" class="rounded button" disabled>
+          {{ _('Clear Selected Class') }}
+        </button>
+        <button type="button" id="delete-selected-btn" class="rounded button alert" disabled>
+          <span class="icon icon-delete"></span> {{ _('Delete Selected') }}
+        </button>
+        <button type="button" id="deselect-all-btn" class="rounded button" style="display:none">
+          {{ _('Deselect All') }}
+        </button>
+      </div>
       {% if className %}
-      <button type="button" id="select-class-btn" class="rounded button" title="{{ classUids|length }} users">
-        {{ _('Select All Filtered') }}
-      </button>
+      <div class="um-toolbar-group um-toolbar-group--selection">
+        <button type="button" id="select-class-btn" class="rounded button" title="{{ classUids|length }} users">
+          {{ _('Select All Filtered') }}
+        </button>
+      </div>
       {% endif %}
     </div>
   </div>
@@ -246,12 +254,19 @@
 .text-gray{color:#888}
 .button--small{padding:4px 8px;font-size:12px}
 
-.section__tools{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px}
+.user-manage-wide-layout{width:calc(100% - 30px);max-width:1440px}
+.um-page-header{display:flex;align-items:flex-start;gap:16px}
+.um-page-header .section__title{padding-top:8px;white-space:nowrap}
+.section__tools{display:flex;flex:1;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+.um-toolbar-group{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px}
+.um-toolbar-group--batch{padding:6px 8px;border:1px solid #d9e2ef;border-radius:7px;background:#f8fafc}
+.um-toolbar-label{font-size:12px;font-weight:bold;color:#64748b;white-space:nowrap}
+.um-toolbar-group--selection{padding-left:8px;border-left:1px solid #d9e2ef}
 .um-filter-row{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px}
 .um-group-select{display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap;font-size:13px}
 .um-group-select select{width:auto;max-width:none;height:32px}
 .um-table-wrap{overflow-x:auto}
-.um-user-table{width:1490px!important;table-layout:fixed!important}
+.um-user-table{width:100%!important;min-width:1390px;table-layout:fixed!important}
 .um-user-table.data-table > thead > tr > th,.um-user-table.data-table > tbody > tr > td{vertical-align:middle;padding:9px 12px!important;overflow:visible!important;text-overflow:clip!important;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;box-sizing:border-box}
 .um-user-table.data-table > thead > tr > th:not(.col--cb):not(.col--actions),
 .um-user-table.data-table > tbody > tr > td:not(.col--cb):not(.col--actions){text-align:left!important}
@@ -274,6 +289,19 @@ button:disabled{opacity:.5;cursor:not-allowed}
 /* 去掉 checkbox 所在 td 的额外样式 */
 .col--cb input[type=checkbox]{margin:0;vertical-align:middle}
 #select-all-cb{margin:0}
+
+@media (max-width: 1100px){
+  .user-manage-wide-layout{width:auto;max-width:980px}
+  .um-page-header{flex-direction:column;align-items:stretch}
+  .um-page-header .section__title{padding-top:0}
+  .section__tools{justify-content:flex-start}
+}
+
+@media (max-width: 640px){
+  .user-manage-wide-layout{width:auto}
+  .um-toolbar-group,.section__tools{justify-content:flex-start}
+  .um-toolbar-group--selection{padding-left:0;border-left:0}
+}
 </style>
 
 <script>
