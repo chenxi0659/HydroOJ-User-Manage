@@ -292,6 +292,30 @@ class UserManageDeleteHandler extends UserManageHandler {
     }
 }
 
+// ==================== 批量清空专业/班级 ====================
+
+class UserManageClearFieldHandler extends UserManageHandler {
+    @param('uids', Types.String)
+    @param('field', Types.String)
+    async post(domainId: string, uids: string, field: string) {
+        const uidArray = Array.from(new Set(parseUidArray(uids)));
+        if (uidArray.length === 0) throw new ValidationError('uids', 'No users selected');
+        if (!['major', 'class'].includes(field)) throw new ValidationError('field', 'Invalid field');
+
+        const users = await UserModel.coll.find({ _id: { $in: uidArray } }).toArray();
+        if (users.length !== uidArray.length) throw new ValidationError('uids', 'One or more users no longer exist');
+
+        await UserModel.coll.updateMany(
+            { _id: { $in: uidArray } },
+            { $set: { [field]: '' } },
+        );
+        for (const user of users) UserModel._deleteUserCache(user);
+        await syncAttributeGroups(domainId);
+
+        this.response.body = { success: true, count: users.length, field };
+    }
+}
+
 // ==================== 分组管理处理器 ====================
 
 class UserManageGroupsHandler extends UserManageHandler {
@@ -554,6 +578,7 @@ export async function apply(ctx: Context) {
     // 注意：具体路由必须在 /manage/users/:uid 之前注册，避免被 :uid 拦截
     ctx.Route('user_manage_export', '/manage/users/export', UserManageExportHandler, PRIV.PRIV_EDIT_SYSTEM);
     ctx.Route('user_manage_delete', '/manage/users/delete', UserManageDeleteHandler, PRIV.PRIV_EDIT_SYSTEM);
+    ctx.Route('user_manage_clear_field', '/manage/users/clear-field', UserManageClearFieldHandler, PRIV.PRIV_EDIT_SYSTEM);
     ctx.Route('user_manage_groups', '/manage/users/groups', UserManageGroupsHandler, PRIV.PRIV_EDIT_SYSTEM);
     ctx.Route('user_manage_auto_group', '/manage/users/auto-group', UserManageAutoGroupHandler, PRIV.PRIV_EDIT_SYSTEM);
     ctx.Route('user_manage_import', '/manage/users/import', UserManageImportHandler, PRIV.PRIV_EDIT_SYSTEM);
@@ -635,6 +660,8 @@ export async function apply(ctx: Context) {
         'Delete Selected': '删除选中',
         'Clear Major': '清空专业',
         'Clear Class': '清空班级',
+        'Clear Selected Major': '清空选中专业',
+        'Clear Selected Class': '清空选中班级',
         'Export CSV': '导出CSV',
         'Select All': '全选',
         'Deselect All': '取消全选',
@@ -656,6 +683,7 @@ export async function apply(ctx: Context) {
         'One or more users no longer exist': '部分用户已不存在，请刷新页面后重试',
         'Cannot delete the active administrator account': '不能删除当前正在操作的管理员账户',
         'Cannot delete root account': '不能删除 root 账户',
+        'Invalid field': '无效的字段',
         'Export completed': '导出完成',
         'Group created': '分组创建成功',
         'Group deleted': '分组已删除',
@@ -735,6 +763,8 @@ export async function apply(ctx: Context) {
         'Delete Selected': 'Delete Selected',
         'Clear Major': 'Clear Major',
         'Clear Class': 'Clear Class',
+        'Clear Selected Major': 'Clear Selected Major',
+        'Clear Selected Class': 'Clear Selected Class',
         'Export CSV': 'Export CSV',
         'Select All': 'Select All',
         'Deselect All': 'Deselect All',
@@ -756,6 +786,7 @@ export async function apply(ctx: Context) {
         'One or more users no longer exist': 'One or more users no longer exist. Refresh and try again.',
         'Cannot delete the active administrator account': 'Cannot delete the active administrator account',
         'Cannot delete root account': 'Cannot delete root account',
+        'Invalid field': 'Invalid field',
         'Export completed': 'Export completed',
         'Group created': 'Group created',
         'Group deleted': 'Group deleted',

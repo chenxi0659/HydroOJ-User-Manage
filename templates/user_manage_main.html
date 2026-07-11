@@ -18,6 +18,12 @@
       <button type="button" id="delete-selected-btn" class="rounded button alert" disabled>
         <span class="icon icon-delete"></span> {{ _('Delete Selected') }}
       </button>
+      <button type="button" id="clear-selected-major-btn" class="rounded button" disabled>
+        {{ _('Clear Selected Major') }}
+      </button>
+      <button type="button" id="clear-selected-class-btn" class="rounded button" disabled>
+        {{ _('Clear Selected Class') }}
+      </button>
       <button type="button" id="deselect-all-btn" class="rounded button" style="display:none">
         {{ _('Deselect All') }}
       </button>
@@ -307,12 +313,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
       $('#selected-count').text(cnt + ' users selected').show();
       $('#export-selected-btn').prop('disabled', false);
       $('#delete-selected-btn').prop('disabled', false);
+      $('#clear-selected-major-btn').prop('disabled', false);
+      $('#clear-selected-class-btn').prop('disabled', false);
       $('#deselect-all-btn').show();
       $('#add-to-group-btn').prop('disabled', false);
     } else {
       $('#selected-count').hide();
       $('#export-selected-btn').prop('disabled', true);
       $('#delete-selected-btn').prop('disabled', true);
+      $('#clear-selected-major-btn').prop('disabled', true);
+      $('#clear-selected-class-btn').prop('disabled', true);
       $('#deselect-all-btn').hide();
       $('#add-to-group-btn').prop('disabled', true);
     }
@@ -415,6 +425,20 @@ button:disabled{opacity:.5;cursor:not-allowed}
     if (e.key === 'Enter') $('#confirm-delete-users').trigger('click');
     if (e.key === 'Escape') $('#cancel-delete-users').trigger('click');
   });
+
+  /* ====== 批量清空专业/班级 ====== */
+  function clearSelectedField(field, label) {
+    var uids = Object.keys(selected).map(Number);
+    if (!uids.length) return;
+    if (!confirm('确定要清空选中 ' + uids.length + ' 个用户的' + label + '吗？此操作会同步更新自动分组。')) return;
+    var buttonId = field === 'major' ? '#clear-selected-major-btn' : '#clear-selected-class-btn';
+    var $btn = $(buttonId).prop('disabled', true);
+    apiPost('{{ url('user_manage_clear_field') }}', { uids: JSON.stringify(uids), field: field })
+      .then(function(){ location.reload(); })
+      .catch(function(err){ alert(err.message); $btn.prop('disabled', false); });
+  }
+  $('#clear-selected-major-btn').on('click', function(){ clearSelectedField('major', '专业'); });
+  $('#clear-selected-class-btn').on('click', function(){ clearSelectedField('class', '班级'); });
 
   /* ====== 分组筛选 ====== */
   function switchGroup(name) {
