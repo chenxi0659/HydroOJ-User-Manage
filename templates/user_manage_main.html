@@ -146,9 +146,6 @@
           <td class="col--uid" style="text-align:left!important;padding-left:12px!important">{{ udoc._id }}</td>
           <td class="col--user" style="text-align:left!important;padding-left:12px!important">
             {{ user.render_inline(udoc, badge=false) }}
-            {% if dudoc and dudoc.displayName %}
-              <br><small class="text-gray">{{ dudoc.displayName }}</small>
-            {% endif %}
           </td>
           <td class="col--email" style="text-align:left!important;padding-left:12px!important">{{ udoc.mail }}</td>
           <td class="col--major" style="text-align:left!important;padding-left:12px!important">{{ udoc.major or '-' }}</td>

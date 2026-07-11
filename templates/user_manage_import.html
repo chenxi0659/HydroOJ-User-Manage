@@ -14,7 +14,7 @@
 
   <div class="section__body" id="csv-import-panel" style="display:none">
     <label>CSV 文本或文件</label>
-    <p class="help-text">支持表头：用户名、邮箱、密码、专业、班级（也兼容原生格式：邮箱、用户名、密码、显示名、扩展数据）。目前仅支持 CSV/TXT，不支持 Excel 文件。</p>
+    <p class="help-text">支持表头：用户名、邮箱、密码、专业、班级。目前仅支持 CSV/TXT，不支持 Excel 文件。</p>
     <textarea id="csv-text" rows="6" class="textbox" placeholder="用户名,邮箱,密码,专业,班级"></textarea>
     <input type="file" id="csv-file" accept=".csv,.txt,text/csv,text/plain">
     <button type="button" id="parse-csv-btn" class="rounded button">解析并加入待确认名单</button>
@@ -79,7 +79,7 @@
     var header = rows[0].map(function(value) { return value.toLowerCase(); });
     var hasHeader = header.indexOf('用户名') >= 0 || header.indexOf('username') >= 0 || header.indexOf('邮箱') >= 0 || header.indexOf('email') >= 0;
     function column(names, fallback) { var found = header.findIndex(function(value) { return names.indexOf(value) >= 0; }); return found >= 0 ? found : fallback; }
-    return (hasHeader ? rows.slice(1) : rows).map(function(values) { return hasHeader ? { uname: values[column(['用户名', 'username', 'uname'], 0)], mail: values[column(['邮箱', 'email', 'mail'], 1)], password: values[column(['密码', 'password'], 2)], major: values[column(['专业', 'major'], 3)], class: values[column(['班级', 'class'], 4)] } : { mail: values[0], uname: values[1], password: values[2], major: values[3], class: values[4] }; });
+    return (hasHeader ? rows.slice(1) : rows).map(function(values) { return hasHeader ? { uname: values[column(['用户名', 'username', 'uname'], 0)], mail: values[column(['邮箱', 'email', 'mail'], 1)], password: values[column(['密码', 'password'], 2)], major: values[column(['专业', 'major'], 3)], class: values[column(['班级', 'class'], 4)] } : { uname: values[0], mail: values[1], password: values[2], major: values[3], class: values[4] }; });
   }
   $('#add-user-btn').on('click', function() { $('#add-user-form')[0].reset(); $('#add-user-dialog').show(); });
   $('#cancel-add-user-btn').on('click', function() { $('#add-user-dialog').hide(); });
