@@ -34,6 +34,8 @@ function generateCSV(columns: string[], rows: string[][]): string {
 }
 
 function getRegistrationType(udoc: any): string {
+    if (udoc.registrationType === 'unified') return '统一注册';
+    if (udoc.registrationType === 'self') return '主动注册';
     if (udoc.major?.trim() && udoc.class?.trim()) return '统一注册';
     return '主动注册';
 }
@@ -367,14 +369,21 @@ class UserManageAutoGroupHandler extends UserManageHandler {
 class UserManageDetailHandler extends UserManageHandler {
     @param('uid', Types.Int)
     async get(domainId: string, uid: number) {
-        const udoc = await UserModel.getById(domainId, uid);
+        const [udoc, rawUdocs] = await Promise.all([
+            UserModel.getById(domainId, uid),
+            UserModel.getMulti({ _id: uid }).toArray(),
+        ]);
         if (!udoc) throw new UserNotFoundError(uid);
+        const profile = rawUdocs[0] || {};
 
         const dudoc = await DomainModel.getDomainUser(domainId, udoc);
 
         this.response.template = 'user_manage_detail.html';
         this.response.body = {
             udoc,
+            profile,
+            registrationType: getRegistrationType(profile),
+            registrationTypeValue: profile.registrationType || (profile.major?.trim() && profile.class?.trim() ? 'unified' : 'self'),
             dudoc,
             canEdit: true,
             moment
@@ -388,7 +397,8 @@ class UserManageDetailHandler extends UserManageHandler {
     @param('bio', Types.Content, true)
     @param('major', Types.String, true)
     @param('class', Types.String, true)
-    async postEdit(domainId: string, uid: number, mail?: string, uname?: string, school?: string, bio?: string, major?: string, newClass?: string) {
+    @param('registrationType', Types.String, true)
+    async postEdit(domainId: string, uid: number, mail?: string, uname?: string, school?: string, bio?: string, major?: string, newClass?: string, registrationType?: string) {
         const udoc = await UserModel.getById(domainId, uid);
         if (!udoc) throw new UserNotFoundError(uid);
 
@@ -413,6 +423,10 @@ class UserManageDetailHandler extends UserManageHandler {
         if (bio !== undefined) updates.bio = bio;
         if (major !== undefined) updates.major = major.trim();
         if (newClass !== undefined) updates.class = newClass.trim();
+        if (registrationType !== undefined) {
+            if (!['self', 'unified'].includes(registrationType)) throw new ValidationError('registrationType', 'Invalid registration type');
+            updates.registrationType = registrationType;
+        }
 
         if (Object.keys(updates).length > 0) {
             await UserModel.setById(uid, updates);

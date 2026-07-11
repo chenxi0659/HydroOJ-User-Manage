@@ -18,10 +18,10 @@
     <div class="row">
       <div class="medium-8 columns">
         <h3>{{ _('Basic Information') }}</h3>
-        <form method="post">
+        <form method="post" class="um-profile-form">
           <input type="hidden" name="operation" value="edit">
           <div class="row">
-            <div class="medium-6 columns">
+            <div class="medium-12 columns">
               {{ form.form_text({
                 label: _('User ID'),
                 name: 'uid',
@@ -29,7 +29,7 @@
                 readonly: true
               }) }}
             </div>
-            <div class="medium-6 columns">
+            <div class="medium-12 columns">
               {{ form.form_text({
                 label: _('Username'),
                 name: 'uname',
@@ -50,14 +50,14 @@
             </div>
           </div>
           <div class="row">
-            <div class="medium-6 columns">
+            <div class="medium-12 columns">
               {{ form.form_text({
                 label: _('School'),
                 name: 'school',
-                value: udoc.school or ''
+                value: profile.school or ''
               }) }}
             </div>
-            <div class="medium-6 columns">
+            <div class="medium-12 columns">
               {{ form.form_text({
                 label: _('Registration Time'),
                 name: 'regat',
@@ -67,19 +67,29 @@
             </div>
           </div>
           <div class="row">
-            <div class="medium-6 columns">
+            <div class="medium-12 columns">
               {{ form.form_text({
                 label: _('Major'),
                 name: 'major',
-                value: udoc.major or ''
+                value: profile.major or ''
               }) }}
             </div>
-            <div class="medium-6 columns">
+            <div class="medium-12 columns">
               {{ form.form_text({
                 label: _('Class'),
                 name: 'class',
-                value: udoc.class or ''
+                value: profile.class or ''
               }) }}
+            </div>
+          </div>
+          <div class="row">
+            <div class="medium-12 columns">
+              <label>{{ _('Registration Type') }}
+                <select name="registrationType" class="textbox">
+                  <option value="self" {% if registrationTypeValue == 'self' %}selected{% endif %}>{{ _('Self Registration') }}</option>
+                  <option value="unified" {% if registrationTypeValue == 'unified' %}selected{% endif %}>{{ _('Unified Registration') }}</option>
+                </select>
+              </label>
             </div>
           </div>
           <div class="row">
@@ -87,7 +97,7 @@
               {{ form.form_textarea({
                 label: _('Bio'),
                 name: 'bio',
-                value: udoc.bio or '',
+                value: profile.bio or '',
                 rows: 3
               }) }}
             </div>
@@ -128,7 +138,7 @@
 
           <dt>{{ _('Registration Type') }}</dt>
           <dd>
-            {% if udoc.major and udoc.class %}
+            {% if registrationType == '统一注册' %}
               <span class="badge badge--blue">{{ _('Unified Registration') }}</span>
             {% else %}
               <span class="badge badge--yellow">{{ _('Self Registration') }}</span>
@@ -306,6 +316,18 @@
 .alert {
   background-color: #d9534f;
   border-color: #d43f3a;
+}
+
+.um-profile-form input.textbox,
+.um-profile-form textarea.textbox,
+.um-profile-form select.textbox {
+  width: 100%;
+  max-width: none;
+}
+
+.um-profile-form .form__item {
+  width: 100%;
+  max-width: none;
 }
 </style>
 {% endblock %}
