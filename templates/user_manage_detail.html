@@ -125,6 +125,15 @@
               -
             {% endif %}
           </dd>
+
+          <dt>{{ _('Registration Type') }}</dt>
+          <dd>
+            {% if udoc.major and udoc.class %}
+              <span class="badge badge--blue">{{ _('Unified Registration') }}</span>
+            {% else %}
+              <span class="badge badge--yellow">{{ _('Self Registration') }}</span>
+            {% endif %}
+          </dd>
           
           <dt>{{ _('Current Privilege') }}</dt>
           <dd>

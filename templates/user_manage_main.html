@@ -30,12 +30,19 @@
   <div class="section__body">
     <div class="um-filter-row">
       <strong>{{ _('Group Filter') }}:</strong>
-      <span class="group-tag active" data-group="">{{ _('All Users') }}</span>
-      {% for g in groups %}
-      <span class="group-tag" data-group="{{ g.name }}" title="{{ g.count }} {{ _('users') }}">
-        {{ g.name }} ({{ g.count }})
-      </span>
-      {% endfor %}
+      <button type="button" id="all-users-btn" class="rounded button{% if not group %} primary{% endif %}">{{ _('All Users') }}</button>
+      <label class="um-group-select">专业分组
+        <select id="major-group-select" style="min-width:{{ majorGroupWidth }}ch">
+          <option value="">选择专业分组</option>
+          {% for g in majorGroups %}<option value="{{ g.name }}" {% if group == g.name %}selected{% endif %}>{{ g.label }} ({{ g.count }})</option>{% endfor %}
+        </select>
+      </label>
+      <label class="um-group-select">班级分组
+        <select id="class-group-select" style="min-width:{{ classGroupWidth }}ch">
+          <option value="">选择班级分组</option>
+          {% for g in classGroups %}<option value="{{ g.name }}" {% if group == g.name %}selected{% endif %}>{{ g.label }} ({{ g.count }})</option>{% endfor %}
+        </select>
+      </label>
       <button type="button" id="create-group-btn" class="rounded button button--small">
         <span class="icon icon-add"></span> {{ _('Create Group') }}
       </button>
@@ -83,7 +90,7 @@
   </div>
 
   <!-- 用户列表 -->
-  <div class="section__body no-padding">
+  <div class="section__body no-padding um-table-wrap">
     <table class="data-table" id="user-table">
       <colgroup>
         <col class="col--cb">
@@ -198,11 +205,11 @@
 <style>
 .col--cb { width: 38px; }
 .col--uid { width: 60px; }
-.col--user { width: 130px; }
-.col--email { width: 180px; }
-.col--major { width: 90px; }
-.col--class { width: 100px; }
-.col--regtype { width: 85px; }
+.col--user { min-width: 150px; }
+.col--email { min-width: 210px; }
+.col--major { min-width: 130px; }
+.col--class { min-width: 130px; }
+.col--regtype { min-width: 100px; }
 .col--priv { width: 80px; }
 .col--actions { width: 60px; }
 
@@ -216,11 +223,12 @@
 .text-gray{color:#888}
 .button--small{padding:4px 8px;font-size:12px}
 
-.um-filter-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
-.group-tag{display:inline-block;padding:4px 12px;margin:0 2px;border:1px solid #ccc;
-  border-radius:14px;cursor:pointer;font-size:13px;user-select:none}
-.group-tag:hover{border-color:#5bc0de;background:#f0f9ff}
-.group-tag.active{background:#337ab7;border-color:#337ab7;color:#fff}
+.section__tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.um-filter-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.um-group-select{display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap;font-size:13px}
+.um-group-select select{width:auto;max-width:36vw;height:32px}
+.um-table-wrap{overflow-x:auto}
+#user-table{min-width:1080px}
 
 .um-dialog{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
   background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.2);
@@ -353,19 +361,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
   });
 
   /* ====== 分组筛选 ====== */
-  $(document).on('click', '.group-tag', function(){
-    var name = $(this).data('group') || '';
+  function switchGroup(name) {
     var url = new URL(window.location.href);
     if (name) url.searchParams.set('group', name);
     else url.searchParams.delete('group');
     url.searchParams.delete('page');
     location.href = url.pathname + (url.search || '');
-  });
-  if (currentGroup) {
-    $('.group-tag').removeClass('active');
-    $('.group-tag[data-group="' + currentGroup + '"]').addClass('active');
-    $('#delete-group-btn').show();
   }
+  $('#all-users-btn').on('click', function(){ switchGroup(''); });
+  $('#major-group-select, #class-group-select').on('change', function(){ if (this.value) switchGroup(this.value); });
+  if (currentGroup) $('#delete-group-btn').show();
 
   /* ====== 新建分组 ====== */
   $('#create-group-btn').on('click', function(){ $('#create-group-dialog').show(); $('#new-group-name').val('').focus(); });
@@ -394,11 +399,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   /* ====== 加入分组 ====== */
   $('#add-to-group-btn').on('click', function(){
     var sel = $('#select-group-target');
-    sel.find('option:not(:first)').remove();
-    $('.group-tag').each(function(){
-      var n = $(this).data('group');
-      if (n) sel.append('<option>' + n + '</option>');
-    });
+    sel.val('');
     $('#add-to-group-dialog').show();
   });
   $('#cancel-add-to-group').on('click', function(){ $('#add-to-group-dialog').hide(); });

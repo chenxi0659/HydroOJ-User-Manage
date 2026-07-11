@@ -34,7 +34,7 @@ function generateCSV(columns: string[], rows: string[][]): string {
 }
 
 function getRegistrationType(udoc: any): string {
-    if (udoc.major && udoc.class) return '统一注册';
+    if (udoc.major?.trim() && udoc.class?.trim()) return '统一注册';
     return '主动注册';
 }
 
@@ -171,6 +171,8 @@ class UserManageMainHandler extends UserManageHandler {
         const groups = allGroups
             .filter(g => !/^\d+$/.test(g.name)) // 过滤掉系统自动生成的 uid 分组
             .map(g => ({ name: g.name, count: g.uids.length }));
+        const majorGroups = groups.filter((g) => g.name.startsWith('专业：')).map((g) => ({ ...g, label: g.name.slice(3) }));
+        const classGroups = groups.filter((g) => g.name.startsWith('班级：')).map((g) => ({ ...g, label: g.name.slice(3) }));
 
         this.response.template = 'user_manage_main.html';
         this.response.body = {
@@ -185,6 +187,10 @@ class UserManageMainHandler extends UserManageHandler {
             className,
             classUids,
             groups,
+            majorGroups,
+            classGroups,
+            majorGroupWidth: Math.max(12, ...majorGroups.map((g) => g.name.length + 6)),
+            classGroupWidth: Math.max(12, ...classGroups.map((g) => g.name.length + 6)),
             canEdit: true,
             moment
         };
@@ -286,11 +292,13 @@ class UserManageGroupsHandler extends UserManageHandler {
     }
 }
 
-async function updateAttributeGroups(domainId: string, users: Array<ImportUser & { uid: number }>) {
+async function updateAttributeGroups(domainId: string, users: Array<{ uid: number; major?: string; class?: string }>) {
     const additions = new Map<string, number[]>();
     for (const user of users) {
-        if (user.major) additions.set(`专业：${user.major}`, [...(additions.get(`专业：${user.major}`) || []), user.uid]);
-        if (user.class) additions.set(`班级：${user.class}`, [...(additions.get(`班级：${user.class}`) || []), user.uid]);
+        const major = user.major?.trim();
+        const className = user.class?.trim();
+        if (major) additions.set(`专业：${major}`, [...(additions.get(`专业：${major}`) || []), user.uid]);
+        if (className) additions.set(`班级：${className}`, [...(additions.get(`班级：${className}`) || []), user.uid]);
     }
     if (!additions.size) return;
     const existing = await UserModel.listGroup(domainId);
@@ -336,9 +344,9 @@ class UserManageImportHandler extends UserManageHandler {
 
 class UserManageAutoGroupHandler extends UserManageHandler {
     async post(domainId: string) {
-        const udocs = await UserModel.getMulti({ $or: [{ major: { $ne: '' } }, { class: { $ne: '' } }] }).toArray();
+        const udocs = await UserModel.getMulti({}).toArray();
         await updateAttributeGroups(domainId, udocs.map((user) => ({
-            uid: user._id, uname: user.uname, mail: user.mail, password: '', major: user.major || '', class: user.class || '',
+            uid: user._id, major: user.major || '', class: user.class || '',
         })));
         this.response.body = { success: true, count: udocs.length };
     }
@@ -361,29 +369,6 @@ class UserManageDetailHandler extends UserManageHandler {
             canEdit: true,
             moment
         };
-    }
-
-    @param('uid', Types.Int)
-    @param('operation', Types.String)
-    async post(domainId: string, uid: number, operation: string) {
-        const udoc = await UserModel.getById(domainId, uid);
-        if (!udoc) throw new UserNotFoundError(uid);
-
-        if (operation === 'edit') {
-            await this.postEdit(domainId, uid);
-        } else if (operation === 'resetPassword') {
-            await this.postResetPassword(domainId, uid);
-        } else if (operation === 'setPriv') {
-            await this.postSetPriv(domainId, uid);
-        } else if (operation === 'ban') {
-            await this.postBan(domainId, uid);
-        } else if (operation === 'unban') {
-            await this.postUnban(domainId, uid);
-        } else if (operation === 'updateFields') {
-            await this.postUpdateFields(domainId, uid);
-        }
-
-        this.back();
     }
 
     @param('uid', Types.Int)
@@ -416,12 +401,18 @@ class UserManageDetailHandler extends UserManageHandler {
         const updates: any = {};
         if (school !== undefined) updates.school = school;
         if (bio !== undefined) updates.bio = bio;
-        if (major !== undefined) updates.major = major;
-        if (newClass !== undefined) updates.class = newClass;
+        if (major !== undefined) updates.major = major.trim();
+        if (newClass !== undefined) updates.class = newClass.trim();
 
         if (Object.keys(updates).length > 0) {
             await UserModel.setById(uid, updates);
+            await updateAttributeGroups(domainId, [{
+                uid,
+                major: updates.major !== undefined ? updates.major : udoc.major,
+                class: updates.class !== undefined ? updates.class : udoc.class,
+            }]);
         }
+        this.back();
     }
 
     @param('uid', Types.Int)
@@ -432,12 +423,18 @@ class UserManageDetailHandler extends UserManageHandler {
         if (!udoc) throw new UserNotFoundError(uid);
 
         const updates: any = {};
-        if (major !== undefined) updates.major = major;
-        if (newClass !== undefined) updates.class = newClass;
+        if (major !== undefined) updates.major = major.trim();
+        if (newClass !== undefined) updates.class = newClass.trim();
 
         if (Object.keys(updates).length > 0) {
             await UserModel.setById(uid, updates);
+            await updateAttributeGroups(domainId, [{
+                uid,
+                major: updates.major !== undefined ? updates.major : udoc.major,
+                class: updates.class !== undefined ? updates.class : udoc.class,
+            }]);
         }
+        this.back();
     }
 
     @param('uid', Types.Int)
@@ -451,6 +448,7 @@ class UserManageDetailHandler extends UserManageHandler {
         }
 
         await UserModel.setPassword(uid, password);
+        this.back();
     }
 
     @param('uid', Types.Int)
@@ -464,6 +462,7 @@ class UserManageDetailHandler extends UserManageHandler {
         }
 
         await UserModel.setPriv(uid, priv);
+        this.back();
     }
 
     @param('uid', Types.Int)
@@ -476,6 +475,7 @@ class UserManageDetailHandler extends UserManageHandler {
         }
 
         await UserModel.ban(uid, 'Banned by administrator');
+        this.back();
     }
 
     @param('uid', Types.Int)
@@ -485,6 +485,7 @@ class UserManageDetailHandler extends UserManageHandler {
 
         const defaultPriv = await SystemModel.get('default.priv');
         await UserModel.setPriv(uid, defaultPriv);
+        this.back();
     }
 }
 
