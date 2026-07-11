@@ -58,6 +58,12 @@ function mountAccountCards(profile: any) {
         <label>当前密码<input class="textbox" name="currentPassword" type="password" autocomplete="current-password" required></label>
         <button type="submit" class="rounded button">保存用户名</button>
       </form>
+      <form id="um-account-email-form" class="um-account-form">
+        <h3>修改邮箱</h3>
+        <label>新邮箱<input class="textbox" name="mail" type="email" autocomplete="email" required></label>
+        <label>当前密码<input class="textbox" name="currentPassword" type="password" autocomplete="current-password" required></label>
+        <button type="submit" class="rounded button">保存邮箱</button>
+      </form>
       <form id="um-account-password-form" class="um-account-form">
         <h3>修改登录密码</h3>
         <label>当前密码<input class="textbox" name="currentPassword" type="password" autocomplete="current-password" required></label>
@@ -115,6 +121,21 @@ function mountAccountCards(profile: any) {
     } catch (error) { alert((error as Error).message); }
   });
 
+  const emailForm = section.querySelector<HTMLFormElement>('#um-account-email-form')!;
+  (emailForm.elements.namedItem('mail') as HTMLInputElement).value = profile.mail || '';
+  emailForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const fields = new FormData(emailForm);
+    try {
+      await accountRequest(createApiPath('email'), {
+        mail: String(fields.get('mail') || ''),
+        currentPassword: String(fields.get('currentPassword') || ''),
+      });
+      alert('邮箱已保存。');
+      (emailForm.elements.namedItem('currentPassword') as HTMLInputElement).value = '';
+    } catch (error) { alert((error as Error).message); }
+  });
+
   const passwordForm = section.querySelector<HTMLFormElement>('#um-account-password-form')!;
   passwordForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -136,7 +157,7 @@ function installAccountStyles() {
   style.textContent = `
     .um-account-form label { display:block; margin-bottom:12px; }
     .um-account-form .textbox { width:100%; max-width:none; }
-    .um-account-credentials { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:24px; }
+    .um-account-credentials { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:24px; }
     .um-account-credentials h3 { margin-top:0; }
     .um-account-readonly { background:#f1f3f5 !important; color:#7b8491 !important; cursor:not-allowed; }
     .um-account-readonly-note { color:#7b8491; font-size:12px; }

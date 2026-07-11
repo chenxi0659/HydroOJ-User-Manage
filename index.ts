@@ -600,6 +600,7 @@ class UserManageAccountProfileHandler extends UserManageAccountHandler {
         const defaultPriv = await SystemModel.get('default.priv');
         this.response.body = {
             uname: profile.uname,
+            mail: profile.mail,
             realName: profile.realName || '',
             studentId: profile.studentId || '',
             major: profile.major || '',
@@ -655,6 +656,21 @@ class UserManageAccountUsernameHandler extends UserManageAccountHandler {
     }
 }
 
+class UserManageAccountEmailHandler extends UserManageAccountHandler {
+    @param('mail', Types.Email)
+    @param('currentPassword', Types.String)
+    async post(domainId: string, mail: string, currentPassword: string) {
+        await this.user.checkPassword(currentPassword);
+        const profile: any = await this.getCurrentProfile();
+        if (mail !== profile.mail) {
+            const existing = await UserModel.getByEmail(domainId, mail);
+            if (existing && existing._id !== this.user._id) throw new ValidationError('mail', 'Email already in use');
+            await UserModel.setEmail(this.user._id, mail);
+        }
+        this.response.body = { success: true };
+    }
+}
+
 class UserManageAccountPasswordHandler extends UserManageAccountHandler {
     @param('currentPassword', Types.String)
     @param('password', Types.Password)
@@ -681,6 +697,7 @@ export async function apply(ctx: Context) {
     ctx.Route('user_manage_import', '/manage/users/import', UserManageImportHandler, PRIV.PRIV_EDIT_SYSTEM);
     ctx.Route('user_manage_account_profile', '/home/account/profile', UserManageAccountProfileHandler, PRIV.PRIV_USER_PROFILE);
     ctx.Route('user_manage_account_username', '/home/account/username', UserManageAccountUsernameHandler, PRIV.PRIV_USER_PROFILE);
+    ctx.Route('user_manage_account_email', '/home/account/email', UserManageAccountEmailHandler, PRIV.PRIV_USER_PROFILE);
     ctx.Route('user_manage_account_password', '/home/account/password', UserManageAccountPasswordHandler, PRIV.PRIV_USER_PROFILE);
 
     // 页面路由
