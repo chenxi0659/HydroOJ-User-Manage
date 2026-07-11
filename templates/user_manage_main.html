@@ -91,7 +91,7 @@
 
   <!-- 用户列表 -->
   <div class="section__body no-padding um-table-wrap">
-    <table class="data-table" id="user-table">
+    <table class="data-table um-user-table" id="user-table">
       <colgroup>
         <col class="col--cb">
         <col class="col--uid">
@@ -228,13 +228,13 @@
 .um-group-select{display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap;font-size:13px}
 .um-group-select select{width:auto;max-width:none;height:32px}
 .um-table-wrap{overflow-x:auto}
-#user-table{width:1490px;table-layout:fixed}
-#user-table.data-table > thead > tr > th,#user-table.data-table > tbody > tr > td{vertical-align:middle;padding:9px 12px!important;overflow:visible!important;text-overflow:clip!important;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;box-sizing:border-box}
-#user-table.data-table > thead > tr > th:not(.col--cb):not(.col--actions),
-#user-table.data-table > tbody > tr > td:not(.col--cb):not(.col--actions){text-align:left!important}
-#user-table.data-table > thead > tr > th.col--cb,#user-table.data-table > tbody > tr > td.col--cb,
-#user-table.data-table > thead > tr > th.col--actions,#user-table.data-table > tbody > tr > td.col--actions{text-align:center!important}
-#user-table .col--uid,#user-table .col--regtype,#user-table .col--priv,#user-table .col--actions{white-space:nowrap}
+.um-user-table{width:1490px!important;table-layout:fixed!important}
+.um-user-table.data-table > thead > tr > th,.um-user-table.data-table > tbody > tr > td{vertical-align:middle;padding:9px 12px!important;overflow:visible!important;text-overflow:clip!important;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;box-sizing:border-box}
+.um-user-table.data-table > thead > tr > th:not(.col--cb):not(.col--actions),
+.um-user-table.data-table > tbody > tr > td:not(.col--cb):not(.col--actions){text-align:left!important}
+.um-user-table.data-table > thead > tr > th.col--cb,.um-user-table.data-table > tbody > tr > td.col--cb,
+.um-user-table.data-table > thead > tr > th.col--actions,.um-user-table.data-table > tbody > tr > td.col--actions{text-align:center!important}
+.um-user-table .col--uid,.um-user-table .col--regtype,.um-user-table .col--priv,.um-user-table .col--actions{white-space:nowrap}
 .data-table .button{white-space:nowrap;text-align:center}
 .select-all-wrap{display:flex;min-height:42px;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px}
 .select-all-wrap .um-selected-count{font-size:12px;line-height:1.2;white-space:nowrap;margin:0;color:#337ab7}
