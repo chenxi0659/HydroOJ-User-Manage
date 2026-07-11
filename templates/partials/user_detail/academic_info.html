@@ -1,14 +1,15 @@
-{% if udoc.major or udoc.class or (udoc.showRealNameOnProfile and udoc.realName) %}
+{% set academicProfile = udoc._udoc or udoc %}
+{% if handler.user.hasPriv(PRIV.PRIV_USER_PROFILE) and (academicProfile.major or academicProfile.class or (academicProfile.showRealNameOnProfile and academicProfile.realName)) %}
 <li class="section__tab-item um-academic-info">
   <h1 class="section__tab-title">{{ _('Academic Information') }}</h1>
   <div class="section__tab-main">
     <div class="section__body">
       <dl class="large horizontal">
-        {% if udoc.showRealNameOnProfile and udoc.realName %}
-          <dt>{{ _('Real Name') }}</dt><dd>{{ udoc.realName }}</dd>
+        {% if academicProfile.showRealNameOnProfile and academicProfile.realName %}
+          <dt>{{ _('Real Name') }}</dt><dd>{{ academicProfile.realName }}</dd>
         {% endif %}
-        <dt>{{ _('Major') }}</dt><dd>{{ udoc.major or _('Not set') }}</dd>
-        <dt>{{ _('Class') }}</dt><dd>{{ udoc.class or _('Not set') }}</dd>
+        <dt>{{ _('Major') }}</dt><dd>{{ academicProfile.major or _('Not set') }}</dd>
+        <dt>{{ _('Class') }}</dt><dd>{{ academicProfile.class or _('Not set') }}</dd>
       </dl>
     </div>
   </div>

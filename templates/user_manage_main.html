@@ -147,7 +147,7 @@
           </td>
           <td class="col--uid" style="text-align:left!important;padding-left:12px!important">{{ udoc._id }}</td>
           <td class="col--user" style="text-align:left!important;padding-left:12px!important">
-            <a class="typo-a" href="{{ url('user_manage_detail', uid=udoc._id) }}">{{ udoc.uname }}</a>
+            <a class="typo-a" href="{{ url('user_detail', uid=udoc._id) }}">{{ udoc.uname }}</a>
           </td>
           <td class="col--real-name" style="text-align:left!important;padding-left:12px!important">{{ udoc.realName or '' }}</td>
           <td class="col--student-id" style="text-align:left!important;padding-left:12px!important">{{ udoc.studentId or '' }}</td>
