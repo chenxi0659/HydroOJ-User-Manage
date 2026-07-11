@@ -11,6 +11,7 @@
   <div class="section__body um-actions-panel">
     <div class="section__tools" id="toolbar">
       <div class="um-toolbar-group">
+        <span class="um-toolbar-label">页面操作</span>
         <a href="{{ url('user_manage_import') }}" class="rounded primary button">
           <span class="icon icon-add"></span> 添加用户
         </a>
@@ -256,11 +257,11 @@
 .button--small{padding:4px 8px;font-size:12px}
 
 .um-actions-panel{padding-top:12px!important;padding-bottom:12px!important;background:#fbfcfe;border-bottom:1px solid #e2e8f0}
-.section__tools{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;width:100%}
-.um-toolbar-group{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:8px;min-width:0}
-.um-toolbar-group--batch{padding:8px 10px;border:1px solid #d9e2ef;border-radius:7px;background:#f8fafc}
+.section__tools{display:grid;grid-template-columns:max-content minmax(0,1fr) max-content;align-items:center;gap:12px;width:100%}
+.um-toolbar-group{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:8px;min-width:0;max-width:100%;box-sizing:border-box}
+.um-toolbar-group--batch{justify-self:end;padding:8px 10px;border:1px solid #d9e2ef;border-radius:7px;background:#f8fafc}
 .um-toolbar-label{font-size:12px;font-weight:bold;color:#64748b;white-space:nowrap}
-.um-toolbar-group--selection{padding-left:10px;border-left:1px solid #d9e2ef}
+.um-toolbar-group--selection{justify-self:end;padding-left:12px;border-left:1px solid #d9e2ef}
 .um-filter-row{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px}
 .um-group-select{display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap;font-size:13px}
 .um-group-select select{width:auto;max-width:none;height:32px}
@@ -289,13 +290,15 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .col--cb input[type=checkbox]{margin:0;vertical-align:middle}
 #select-all-cb{margin:0}
 
-@media (max-width: 1100px){
-  .section__tools{justify-content:flex-start}
+@media (max-width: 1500px){
+  .section__tools{grid-template-columns:1fr;justify-items:start}
+  .um-toolbar-group--batch,.um-toolbar-group--selection{justify-self:start}
+  .um-toolbar-group--selection{padding-left:0;border-left:0}
 }
 
 @media (max-width: 640px){
-  .um-toolbar-group,.section__tools{justify-content:flex-start}
-  .um-toolbar-group--selection{padding-left:0;border-left:0}
+  .um-toolbar-group{gap:6px}
+  .um-toolbar-group--batch{padding:8px}
 }
 </style>
 
