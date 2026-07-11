@@ -38,6 +38,12 @@ function getRegistrationType(udoc: any): string {
     return '主动注册';
 }
 
+function createKeywordRegex(keyword: string) {
+    const terms = keyword.trim().split(/\s+/).filter(Boolean)
+        .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    return new RegExp(terms.join('.*'), 'i');
+}
+
 type ImportUser = {
     uname: string;
     mail: string;
@@ -124,10 +130,12 @@ class UserManageMainHandler extends UserManageHandler {
 
         // 搜索功能
         if (search) {
-            const searchRegex = new RegExp(search, 'i');
+            const searchRegex = createKeywordRegex(search);
             const searchQuery: any[] = [
                 { unameLower: searchRegex },
                 { mailLower: searchRegex },
+                { major: searchRegex },
+                { class: searchRegex },
                 { _id: isNaN(+search) ? undefined : +search }
             ].filter(Boolean);
             if (query._id) {
@@ -147,7 +155,9 @@ class UserManageMainHandler extends UserManageHandler {
             'priv': { priv: -1 }
         };
 
-        const sortQuery = sortOptions[sort] || { _id: 1 };
+        const sortQuery = search && sort === '_id'
+            ? { major: 1, class: 1, _id: 1 }
+            : sortOptions[sort] || { _id: 1 };
 
         // 获取用户列表
         const [udocs, upcount] = await this.paginate(
@@ -292,19 +302,21 @@ class UserManageGroupsHandler extends UserManageHandler {
     }
 }
 
-async function updateAttributeGroups(domainId: string, users: Array<{ uid: number; major?: string; class?: string }>) {
+async function syncAttributeGroups(domainId: string) {
     const additions = new Map<string, number[]>();
+    const users = await UserModel.getMulti({}).toArray();
     for (const user of users) {
         const major = user.major?.trim();
         const className = user.class?.trim();
         if (major) additions.set(`专业：${major}`, [...(additions.get(`专业：${major}`) || []), user.uid]);
         if (className) additions.set(`班级：${className}`, [...(additions.get(`班级：${className}`) || []), user.uid]);
     }
-    if (!additions.size) return;
     const existing = await UserModel.listGroup(domainId);
+    for (const group of existing.filter((item) => item.name.startsWith('专业：') || item.name.startsWith('班级：'))) {
+        if (!additions.has(group.name)) await UserModel.delGroup(domainId, group.name);
+    }
     for (const [name, uids] of additions) {
-        const current = existing.find((group) => group.name === name)?.uids || [];
-        await UserModel.updateGroup(domainId, name, Array.from(new Set([...current, ...uids])));
+        await UserModel.updateGroup(domainId, name, Array.from(new Set(uids)));
     }
 }
 
@@ -337,18 +349,16 @@ class UserManageImportHandler extends UserManageHandler {
             });
             created.push({ ...user, uid });
         }
-        await updateAttributeGroups(domainId, created);
+        await syncAttributeGroups(domainId);
         this.response.body = { success: true, count: created.length, defaultPriv };
     }
 }
 
 class UserManageAutoGroupHandler extends UserManageHandler {
     async post(domainId: string) {
-        const udocs = await UserModel.getMulti({}).toArray();
-        await updateAttributeGroups(domainId, udocs.map((user) => ({
-            uid: user._id, major: user.major || '', class: user.class || '',
-        })));
-        this.response.body = { success: true, count: udocs.length };
+        const count = (await UserModel.getMulti({}, ['_id']).toArray()).length;
+        await syncAttributeGroups(domainId);
+        this.response.body = { success: true, count };
     }
 }
 
@@ -406,11 +416,7 @@ class UserManageDetailHandler extends UserManageHandler {
 
         if (Object.keys(updates).length > 0) {
             await UserModel.setById(uid, updates);
-            await updateAttributeGroups(domainId, [{
-                uid,
-                major: updates.major !== undefined ? updates.major : udoc.major,
-                class: updates.class !== undefined ? updates.class : udoc.class,
-            }]);
+            await syncAttributeGroups(domainId);
         }
         this.back();
     }
@@ -428,11 +434,7 @@ class UserManageDetailHandler extends UserManageHandler {
 
         if (Object.keys(updates).length > 0) {
             await UserModel.setById(uid, updates);
-            await updateAttributeGroups(domainId, [{
-                uid,
-                major: updates.major !== undefined ? updates.major : udoc.major,
-                class: updates.class !== undefined ? updates.class : udoc.class,
-            }]);
+            await syncAttributeGroups(domainId);
         }
         this.back();
     }

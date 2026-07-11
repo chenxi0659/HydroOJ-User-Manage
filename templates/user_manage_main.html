@@ -11,7 +11,6 @@
         <span class="icon icon-add"></span> 添加用户
       </a>
       <button type="button" id="auto-group-btn" class="rounded button">自动分组</button>
-      <span id="selected-count" class="um-selected-count" style="display:none"></span>
       <button type="button" id="export-selected-btn" class="rounded button" disabled>
         <span class="icon icon-download"></span> {{ _('Export Selected') }}
       </button>
@@ -62,7 +61,7 @@
       <div class="medium-4 columns">
         <label>{{ _('Search Users') }}</label>
         <input type="text" name="search" id="search-input" value="{{ search }}"
-               placeholder="{{ _('Username, Email or User ID') }}">
+               placeholder="用户名，邮箱或用户ID">
       </div>
       <div class="medium-2 columns">
         <label>{{ _('Major') }}</label>
@@ -105,7 +104,7 @@
       </colgroup>
       <thead>
         <tr>
-          <th class="col--cb"><input type="checkbox" id="select-all-cb"></th>
+          <th class="col--cb"><div class="select-all-wrap"><span id="selected-count" class="um-selected-count" style="display:none"></span><input type="checkbox" id="select-all-cb"></div></th>
           <th class="col--uid">{{ _('User ID') }}</th>
           <th class="col--user">{{ _('Username') }}</th>
           <th class="col--email">{{ _('Email') }}</th>
@@ -211,7 +210,7 @@
 .col--class { min-width: 130px; }
 .col--regtype { min-width: 100px; }
 .col--priv { width: 80px; }
-.col--actions { width: 60px; }
+.col--actions { min-width: 84px; text-align:center; }
 
 .badge {
   display:inline-block;padding:2px 6px;font-size:11px;font-weight:bold;line-height:1;
@@ -223,12 +222,15 @@
 .text-gray{color:#888}
 .button--small{padding:4px 8px;font-size:12px}
 
-.section__tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
-.um-filter-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.section__tools{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px}
+.um-filter-row{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px}
 .um-group-select{display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap;font-size:13px}
 .um-group-select select{width:auto;max-width:36vw;height:32px}
 .um-table-wrap{overflow-x:auto}
-#user-table{min-width:1080px}
+#user-table{min-width:1140px}
+.data-table .button{white-space:nowrap;text-align:center}
+.select-all-wrap{display:flex;min-height:34px;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px}
+.select-all-wrap .um-selected-count{font-size:11px;line-height:1.1;white-space:nowrap;margin:0}
 
 .um-dialog{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
   background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.2);
@@ -368,7 +370,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
     url.searchParams.delete('page');
     location.href = url.pathname + (url.search || '');
   }
-  $('#all-users-btn').on('click', function(){ switchGroup(''); });
+  $('#all-users-btn').on('click', function(){ location.href = '{{ url('user_manage_main') }}'; });
   $('#major-group-select, #class-group-select').on('change', function(){ if (this.value) switchGroup(this.value); });
   if (currentGroup) $('#delete-group-btn').show();
 
