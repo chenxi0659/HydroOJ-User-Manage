@@ -213,7 +213,7 @@ class UserManageMainHandler extends UserManageHandler {
 class UserManageExportHandler extends UserManageHandler {
     @param('uids', Types.String)
     async post(domainId: string, uids: string) {
-        const uidArray = parseUidArray(uids);
+        const uidArray = Array.from(new Set(parseUidArray(uids)));
         if (uidArray.length === 0) {
             throw new ValidationError('uids', 'No users selected');
         }
@@ -247,6 +247,48 @@ class UserManageExportHandler extends UserManageHandler {
         const csv = generateCSV(columns, rows);
 
         this.response.body = { csv };
+    }
+}
+
+// ==================== 用户删除 ====================
+
+class UserManageDeleteHandler extends UserManageHandler {
+    @param('uids', Types.String)
+    @param('password', Types.String)
+    async post(domainId: string, uids: string, password: string) {
+        const uidArray = Array.from(new Set(parseUidArray(uids)));
+        if (uidArray.length === 0) throw new ValidationError('uids', 'No users selected');
+
+        // 删除是不可逆的账户级操作：必须再次验证当前管理员密码。
+        await this.user.checkPassword(password);
+
+        const users = await UserModel.coll.find({ _id: { $in: uidArray } }).toArray();
+        if (users.length !== uidArray.length) throw new ValidationError('uids', 'One or more users no longer exist');
+        if (users.some((user) => user._id === this.user._id)) {
+            throw new PermissionError('Cannot delete the active administrator account');
+        }
+        if (users.some((user) => user._id <= 1 || user.priv === PRIV.PRIV_ALL)) {
+            throw new PermissionError('Cannot delete root account');
+        }
+
+        // 用户账户是全站共享的；同步移除所有域成员记录和所有用户组引用，
+        // 但保留历史提交/记录，避免破坏题目、比赛和统计数据的关联完整性。
+        await Promise.all([
+            UserModel.coll.deleteMany({ _id: { $in: uidArray } }),
+            DomainModel.collUser.deleteMany({ uid: { $in: uidArray } }),
+            UserModel.collGroup.updateMany(
+                { uids: { $in: uidArray } },
+                { $pull: { uids: { $in: uidArray } } },
+            ),
+        ]);
+        await UserModel.collGroup.deleteMany({
+            uids: { $size: 0 },
+            name: { $regex: /^(专业|班级)：/ },
+        });
+        for (const user of users) UserModel._deleteUserCache(user);
+        await syncAttributeGroups(domainId);
+
+        this.response.body = { success: true, count: users.length };
     }
 }
 
@@ -511,6 +553,7 @@ class UserManageDetailHandler extends UserManageHandler {
 export async function apply(ctx: Context) {
     // 注意：具体路由必须在 /manage/users/:uid 之前注册，避免被 :uid 拦截
     ctx.Route('user_manage_export', '/manage/users/export', UserManageExportHandler, PRIV.PRIV_EDIT_SYSTEM);
+    ctx.Route('user_manage_delete', '/manage/users/delete', UserManageDeleteHandler, PRIV.PRIV_EDIT_SYSTEM);
     ctx.Route('user_manage_groups', '/manage/users/groups', UserManageGroupsHandler, PRIV.PRIV_EDIT_SYSTEM);
     ctx.Route('user_manage_auto_group', '/manage/users/auto-group', UserManageAutoGroupHandler, PRIV.PRIV_EDIT_SYSTEM);
     ctx.Route('user_manage_import', '/manage/users/import', UserManageImportHandler, PRIV.PRIV_EDIT_SYSTEM);
@@ -589,6 +632,9 @@ export async function apply(ctx: Context) {
 
         // 新增：导出和分组
         'Export Selected': '导出选中',
+        'Delete Selected': '删除选中',
+        'Clear Major': '清空专业',
+        'Clear Class': '清空班级',
         'Export CSV': '导出CSV',
         'Select All': '全选',
         'Deselect All': '取消全选',
@@ -607,6 +653,9 @@ export async function apply(ctx: Context) {
         'Unified Registration': '统一注册',
         'Self Registration': '主动注册',
         'No users selected': '未选择用户',
+        'One or more users no longer exist': '部分用户已不存在，请刷新页面后重试',
+        'Cannot delete the active administrator account': '不能删除当前正在操作的管理员账户',
+        'Cannot delete root account': '不能删除 root 账户',
         'Export completed': '导出完成',
         'Group created': '分组创建成功',
         'Group deleted': '分组已删除',
@@ -683,6 +732,9 @@ export async function apply(ctx: Context) {
 
         // New: export and groups
         'Export Selected': 'Export Selected',
+        'Delete Selected': 'Delete Selected',
+        'Clear Major': 'Clear Major',
+        'Clear Class': 'Clear Class',
         'Export CSV': 'Export CSV',
         'Select All': 'Select All',
         'Deselect All': 'Deselect All',
@@ -701,6 +753,9 @@ export async function apply(ctx: Context) {
         'Unified Registration': 'Unified Registration',
         'Self Registration': 'Self Registration',
         'No users selected': 'No users selected',
+        'One or more users no longer exist': 'One or more users no longer exist. Refresh and try again.',
+        'Cannot delete the active administrator account': 'Cannot delete the active administrator account',
+        'Cannot delete root account': 'Cannot delete root account',
         'Export completed': 'Export completed',
         'Group created': 'Group created',
         'Group deleted': 'Group deleted',

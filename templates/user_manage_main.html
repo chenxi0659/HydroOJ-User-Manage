@@ -15,6 +15,9 @@
       <button type="button" id="export-selected-btn" class="rounded button" disabled>
         <span class="icon icon-download"></span> {{ _('Export Selected') }}
       </button>
+      <button type="button" id="delete-selected-btn" class="rounded button alert" disabled>
+        <span class="icon icon-delete"></span> {{ _('Delete Selected') }}
+      </button>
       <button type="button" id="deselect-all-btn" class="rounded button" style="display:none">
         {{ _('Deselect All') }}
       </button>
@@ -177,6 +180,20 @@
   {% endif %}
 </div>
 
+<!-- 删除用户二次确认对话框 -->
+<div id="delete-users-dialog" class="um-dialog" style="display:none">
+  <h2 class="section__title">确认删除用户</h2>
+  <p class="um-delete-warning">将永久删除 <strong id="delete-users-count">0</strong> 个用户账户，并移除其所有域成员资格和用户分组。历史提交记录会保留。</p>
+  <p>此操作不可撤销。请输入当前管理员密码后确认。</p>
+  <label>当前管理员密码
+    <input type="password" id="delete-users-password" class="textbox" autocomplete="current-password">
+  </label>
+  <div class="um-dialog-actions">
+    <button type="button" id="confirm-delete-users" class="rounded button alert">确认永久删除</button>
+    <button type="button" id="cancel-delete-users" class="rounded button">{{ _('Cancel') }}</button>
+  </div>
+</div>
+
 <!-- 新建分组对话框 -->
 <div id="create-group-dialog" class="um-dialog" style="display:none">
   <div><label>{{ _('Group name') }}:</label></div>
@@ -243,6 +260,9 @@
   background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.2);
   z-index:10000;min-width:340px;padding:20px}
 .um-selected-count{font-weight:bold;color:#337ab7;margin-right:8px}
+.um-dialog-actions{margin-top:16px;text-align:right}
+.um-delete-warning{color:#a94442;line-height:1.6}
+.alert{background-color:#d9534f;border-color:#d43f3a;color:#fff}
 button:disabled{opacity:.5;cursor:not-allowed}
 
 /* 去掉 checkbox 所在 td 的额外样式 */
@@ -286,11 +306,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
     if (cnt > 0) {
       $('#selected-count').text(cnt + ' users selected').show();
       $('#export-selected-btn').prop('disabled', false);
+      $('#delete-selected-btn').prop('disabled', false);
       $('#deselect-all-btn').show();
       $('#add-to-group-btn').prop('disabled', false);
     } else {
       $('#selected-count').hide();
       $('#export-selected-btn').prop('disabled', true);
+      $('#delete-selected-btn').prop('disabled', true);
       $('#deselect-all-btn').hide();
       $('#add-to-group-btn').prop('disabled', true);
     }
@@ -367,6 +389,31 @@ button:disabled{opacity:.5;cursor:not-allowed}
         alert('Export error: ' + err.message);
         $btn.prop('disabled', false);
       });
+  });
+
+  /* ====== 删除用户：浏览器确认 + 密码确认 ====== */
+  $('#delete-selected-btn').on('click', function(){
+    var count = Object.keys(selected).length;
+    if (!count) return;
+    if (!confirm('即将永久删除 ' + count + ' 个用户账户，是否继续？')) return;
+    $('#delete-users-count').text(count);
+    $('#delete-users-password').val('');
+    $('#delete-users-dialog').show();
+    $('#delete-users-password').focus();
+  });
+  $('#cancel-delete-users').on('click', function(){ $('#delete-users-dialog').hide(); $('#delete-users-password').val(''); });
+  $('#confirm-delete-users').on('click', function(){
+    var uids = Object.keys(selected).map(Number);
+    var password = $('#delete-users-password').val();
+    if (!uids.length || !password) { alert('请输入当前管理员密码。'); return; }
+    var $btn = $(this).prop('disabled', true);
+    apiPost('{{ url('user_manage_delete') }}', { uids: JSON.stringify(uids), password: password })
+      .then(function(){ location.reload(); })
+      .catch(function(err){ alert(err.message); $btn.prop('disabled', false); });
+  });
+  $('#delete-users-password').on('keydown', function(e){
+    if (e.key === 'Enter') $('#confirm-delete-users').trigger('click');
+    if (e.key === 'Escape') $('#cancel-delete-users').trigger('click');
   });
 
   /* ====== 分组筛选 ====== */

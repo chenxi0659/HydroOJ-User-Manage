@@ -110,6 +110,18 @@
             </div>
           </div>
         </form>
+        <div class="um-field-clear-actions">
+          <form method="post" style="display:inline">
+            <input type="hidden" name="operation" value="updateFields">
+            <input type="hidden" name="major" value="">
+            <button type="submit" class="rounded button" onclick="return confirm('确定要清空该用户的专业吗？')">{{ _('Clear Major') }}</button>
+          </form>
+          <form method="post" style="display:inline">
+            <input type="hidden" name="operation" value="updateFields">
+            <input type="hidden" name="class" value="">
+            <button type="submit" class="rounded button" onclick="return confirm('确定要清空该用户的班级吗？')">{{ _('Clear Class') }}</button>
+          </form>
+        </div>
       </div>
       
       <div class="medium-4 columns">
@@ -328,6 +340,13 @@
 .um-profile-form .form__item {
   width: 100%;
   max-width: none;
+}
+
+.um-field-clear-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }
 </style>
 {% endblock %}
