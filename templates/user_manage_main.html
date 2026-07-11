@@ -1,5 +1,6 @@
 {% import "components/user.html" as user with context %}
 {% import "components/sidemenu.html" as sidemenu with context %}
+{% import "components/paginator.html" as paginator with context %}
 {% extends "manage_base.html" %}
 
 {% block manage_content %}
@@ -167,10 +168,10 @@
     </table>
   </div>
 
-  {% if upcount > 15 %}
+  {% if upcount > 1 %}
   <div class="section__body">
     <div class="row"><div class="columns">
-      {% include "components/paginator.html" %}
+      {{ paginator.render(page, upcount, add_qs=pageQs) }}
     </div></div>
   </div>
   {% endif %}
@@ -228,7 +229,7 @@
 .um-group-select select{width:auto;max-width:none;height:32px}
 .um-table-wrap{overflow-x:auto}
 #user-table{width:1490px;table-layout:fixed}
-#user-table.data-table > thead > tr > th,#user-table.data-table > tbody > tr > td{vertical-align:middle;padding:9px 12px;overflow-wrap:anywhere;word-break:break-word}
+#user-table.data-table > thead > tr > th,#user-table.data-table > tbody > tr > td{vertical-align:middle;padding:9px 12px!important;overflow:visible!important;text-overflow:clip!important;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;box-sizing:border-box}
 #user-table.data-table > thead > tr > th:not(.col--cb):not(.col--actions),
 #user-table.data-table > tbody > tr > td:not(.col--cb):not(.col--actions){text-align:left!important}
 #user-table.data-table > thead > tr > th.col--cb,#user-table.data-table > tbody > tr > td.col--cb,

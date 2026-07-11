@@ -150,6 +150,12 @@ class UserManageMainHandler extends UserManageHandler {
         };
 
         const sortQuery = sortOptions[sort] || { _id: 1 };
+        const pageParams = new URLSearchParams();
+        if (search) pageParams.set('search', search);
+        if (sort && sort !== '_id') pageParams.set('sort', sort);
+        if (group) pageParams.set('group', group);
+        if (major) pageParams.set('major', major);
+        if (className) pageParams.set('class', className);
 
         // 获取用户列表
         const [udocs, upcount] = await this.paginate(
@@ -188,6 +194,7 @@ class UserManageMainHandler extends UserManageHandler {
             major,
             className,
             classUids,
+            pageQs: pageParams.toString(),
             groups,
             majorGroups,
             classGroups,
