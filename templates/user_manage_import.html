@@ -47,4 +47,49 @@
 .um-dialog{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10000;min-width:440px;padding:20px;background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.2)}
 .help-text{color:#666;font-size:12px}.empty td{text-align:center;color:#777}
 </style>
+<script>
+/* 插件模板先于 ui-default 暴露全局 jQuery，等待其完成初始化。 */
+(function waitForHydroUI(){
+  if (!window.HydroExports || !window.$) return setTimeout(waitForHydroUI, 10);
+  var $ = window.$;
+  var pending = [];
+  var $table = $('#pending-users-table tbody');
+  var $messages = $('#import-messages');
+  var defaultPriv = $('#user-import-page').data('default-priv');
+  function escape(value) { return $('<div>').text(value || '').html(); }
+  function registrationType(user) { return user.major && user.class ? '统一注册' : '主动注册'; }
+  function message(text, error) { $messages.text(text || ''); if (error) alert(text); }
+  function apiPost(data) {
+    return fetch(window.location.href, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(data) })
+      .then(function(res) { return res.json().then(function(body) { if (!res.ok || body.error) throw new Error((body.error && body.error.message) || res.statusText); return body; }); });
+  }
+  function render() {
+    if (!pending.length) $table.html('<tr class="empty"><td colspan="7">暂无待确认用户</td></tr>');
+    else $table.html(pending.map(function(user, index) { return '<tr><td>' + escape(user.uname) + '</td><td>' + escape(user.mail) + '</td><td>' + escape(user.major) + '</td><td>' + escape(user.class) + '</td><td>' + registrationType(user) + '</td><td>Default (' + defaultPriv + ')</td><td><button type="button" class="rounded button pending-delete" data-index="' + index + '">删除</button></td></tr>'; }).join(''));
+    $('#confirm-users-btn').prop('disabled', !pending.length);
+  }
+  function addUsers(users) {
+    pending.push.apply(pending, users.map(function(user) { return { uname: String(user.uname || '').trim(), mail: String(user.mail || '').trim(), password: String(user.password || ''), school: String(user.school || '').trim(), bio: String(user.bio || '').trim(), major: String(user.major || '').trim(), class: String(user.class || '').trim() }; }));
+    render();
+  }
+  function parseCsv(text) {
+    var rows = [], row = [], cell = '', quoted = false;
+    for (var i = 0; i < text.length; i++) { var ch = text[i]; if (ch === '"' && text[i + 1] === '"' && quoted) { cell += '"'; i++; } else if (ch === '"') quoted = !quoted; else if (ch === ',' && !quoted) { row.push(cell.trim()); cell = ''; } else if ((ch === '\n' || ch === '\r') && !quoted) { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell.trim()); if (row.some(Boolean)) rows.push(row); row = []; cell = ''; } else cell += ch; }
+    row.push(cell.trim()); if (row.some(Boolean)) rows.push(row); if (!rows.length) return [];
+    var header = rows[0].map(function(value) { return value.toLowerCase(); });
+    var hasHeader = header.indexOf('用户名') >= 0 || header.indexOf('username') >= 0 || header.indexOf('邮箱') >= 0 || header.indexOf('email') >= 0;
+    function column(names, fallback) { var found = header.findIndex(function(value) { return names.indexOf(value) >= 0; }); return found >= 0 ? found : fallback; }
+    return (hasHeader ? rows.slice(1) : rows).map(function(values) { return hasHeader ? { uname: values[column(['用户名', 'username', 'uname'], 0)], mail: values[column(['邮箱', 'email', 'mail'], 1)], password: values[column(['密码', 'password'], 2)], major: values[column(['专业', 'major'], 3)], class: values[column(['班级', 'class'], 4)] } : { mail: values[0], uname: values[1], password: values[2], major: values[3], class: values[4] }; });
+  }
+  $('#add-user-btn').on('click', function() { $('#add-user-form')[0].reset(); $('#add-user-dialog').show(); });
+  $('#cancel-add-user-btn').on('click', function() { $('#add-user-dialog').hide(); });
+  $('#add-user-form').on('submit', function(event) { event.preventDefault(); var data = {}; $(this).serializeArray().forEach(function(item) { data[item.name] = item.value; }); addUsers([data]); $('#add-user-dialog').hide(); });
+  $('#switch-import-mode-btn').on('click', function() { $('#csv-import-panel').toggle(); });
+  $('#csv-file').on('change', function(event) { var file = event.target.files[0]; if (!file) return; var reader = new FileReader(); reader.onload = function() { $('#csv-text').val(reader.result); }; reader.readAsText(file, 'utf-8'); });
+  $('#parse-csv-btn').on('click', function() { var users = parseCsv($('#csv-text').val()); if (!users.length) return message('未识别到有效 CSV 记录。', true); addUsers(users); message('已加入 ' + users.length + ' 名待确认用户。'); });
+  $table.on('click', '.pending-delete', function() { var index = Number($(this).data('index')); if (!confirm('确定从待确认名单删除用户“' + pending[index].uname + '”吗？')) return; pending.splice(index, 1); render(); });
+  $('#confirm-users-btn').on('click', function() { var users = JSON.stringify(pending); apiPost({ operation: 'validate', users: users }).then(function(preview) { if (!preview.valid) return message(preview.errors.join('\n'), true); if (!confirm('确定创建 ' + pending.length + ' 名用户吗？此操作将同时更新专业和班级分组。')) return; return apiPost({ operation: 'create', users: users }).then(function(result) { message('已创建 ' + result.count + ' 名用户。'); pending = []; render(); }); }).catch(function(error) { message(error.message, true); }); });
+  render();
+})();
+</script>
 {% endblock %}
