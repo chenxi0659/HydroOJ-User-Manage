@@ -7,6 +7,10 @@
   <div class="section__header">
     <h1 class="section__title">{{ _('User Management') }}</h1>
     <div class="section__tools" id="toolbar">
+      <a href="{{ url('user_manage_import') }}" class="rounded primary button">
+        <span class="icon icon-add"></span> 添加用户
+      </a>
+      <button type="button" id="auto-group-btn" class="rounded button">自动分组</button>
       <span id="selected-count" class="um-selected-count" style="display:none"></span>
       <button type="button" id="export-selected-btn" class="rounded button" disabled>
         <span class="icon icon-download"></span> {{ _('Export Selected') }}
@@ -316,6 +320,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
     $('.user-cb').each(function(){ this.checked = !!selected[$(this).data('uid')]; });
     $('#select-all-cb').prop('checked', $('.user-cb').length > 0 && $('.user-cb:checked').length === $('.user-cb').length);
     refreshToolbar();
+  });
+
+  $('#auto-group-btn').on('click', function(){
+    if (!confirm('将按专业和班级为所有已有用户补充分组，是否继续？')) return;
+    var $btn = $(this).prop('disabled', true);
+    apiPost('{{ url('user_manage_auto_group') }}', {})
+      .then(function(){ location.reload(); })
+      .catch(function(err){ alert(err.message); $btn.prop('disabled', false); });
   });
 
   /* ====== 导出 ====== */

@@ -1,0 +1,50 @@
+{% extends "manage_base.html" %}
+
+{% block manage_content %}
+<div class="section" id="user-import-page" data-default-priv="{{ defaultPriv }}">
+  <div class="section__header">
+    <h1 class="section__title">批量添加用户</h1>
+    <div class="section__tools"><a class="rounded button" href="{{ url('user_manage_main') }}">返回用户管理</a></div>
+  </div>
+  <div class="section__body">
+    <p>新用户默认使用系统当前的 Default 权限（{{ defaultPriv }}）。所有记录会先进入待确认名单，确认后才创建账号。</p>
+    <button type="button" id="add-user-btn" class="rounded primary button">添加用户</button>
+    <button type="button" id="switch-import-mode-btn" class="rounded button">切换到 CSV 模式</button>
+  </div>
+
+  <div class="section__body" id="csv-import-panel" style="display:none">
+    <label>CSV 文本或文件</label>
+    <p class="help-text">支持表头：用户名、邮箱、密码、专业、班级（也兼容原生格式：邮箱、用户名、密码、显示名、扩展数据）。目前仅支持 CSV/TXT，不支持 Excel 文件。</p>
+    <textarea id="csv-text" rows="6" class="textbox" placeholder="用户名,邮箱,密码,专业,班级"></textarea>
+    <input type="file" id="csv-file" accept=".csv,.txt,text/csv,text/plain">
+    <button type="button" id="parse-csv-btn" class="rounded button">解析并加入待确认名单</button>
+  </div>
+
+  <div class="section__body no-padding">
+    <table class="data-table" id="pending-users-table">
+      <thead><tr><th>用户名</th><th>邮箱</th><th>专业</th><th>班级</th><th>注册类型</th><th>权限</th><th>操作</th></tr></thead>
+      <tbody><tr class="empty"><td colspan="7">暂无待确认用户</td></tr></tbody>
+    </table>
+  </div>
+  <div class="section__body">
+    <button type="button" id="confirm-users-btn" class="rounded primary button" disabled>确认新增用户</button>
+    <pre id="import-messages" style="white-space:pre-wrap"></pre>
+  </div>
+</div>
+
+<div id="add-user-dialog" class="um-dialog" style="display:none">
+  <h2>添加用户</h2>
+  <form id="add-user-form">
+    <div class="row"><div class="medium-6 columns"><label>用户名<input name="uname" required></label></div><div class="medium-6 columns"><label>邮箱<input name="mail" type="email" required></label></div></div>
+    <div class="row"><div class="medium-6 columns"><label>初始密码<input name="password" type="password" required></label></div><div class="medium-6 columns"><label>学校<input name="school"></label></div></div>
+    <div class="row"><div class="medium-6 columns"><label>专业<input name="major"></label></div><div class="medium-6 columns"><label>班级<input name="class"></label></div></div>
+    <label>个人简介<textarea name="bio" rows="2"></textarea></label>
+    <div style="text-align:right"><button type="submit" class="rounded primary button">加入待确认名单</button><button type="button" id="cancel-add-user-btn" class="rounded button">取消</button></div>
+  </form>
+</div>
+
+<style>
+.um-dialog{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10000;min-width:440px;padding:20px;background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+.help-text{color:#666;font-size:12px}.empty td{text-align:center;color:#777}
+</style>
+{% endblock %}

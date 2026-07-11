@@ -38,6 +38,54 @@ function getRegistrationType(udoc: any): string {
     return '主动注册';
 }
 
+type ImportUser = {
+    uname: string;
+    mail: string;
+    password: string;
+    school?: string;
+    bio?: string;
+    major?: string;
+    class?: string;
+};
+
+function parseImportUsers(raw: string): ImportUser[] {
+    try {
+        const users = JSON.parse(raw);
+        if (!Array.isArray(users)) throw new Error('Invalid user list');
+        return users.map((user) => ({
+            uname: String(user.uname || '').trim(),
+            mail: String(user.mail || '').trim(),
+            password: String(user.password || ''),
+            school: String(user.school || '').trim(),
+            bio: String(user.bio || '').trim(),
+            major: String(user.major || '').trim(),
+            class: String(user.class || '').trim(),
+        }));
+    } catch {
+        throw new ValidationError('users', 'Invalid user list');
+    }
+}
+
+async function validateImportUsers(domainId: string, users: ImportUser[]) {
+    const errors: string[] = [];
+    const mails = new Set<string>();
+    const unames = new Set<string>();
+    for (let index = 0; index < users.length; index++) {
+        const user = users[index];
+        const prefix = `第 ${index + 1} 行`;
+        if (!Types.Email[1](user.mail)) errors.push(`${prefix}：邮箱格式无效`);
+        if (!Types.Username[1](user.uname)) errors.push(`${prefix}：用户名格式无效`);
+        if (!Types.Password[1](user.password)) errors.push(`${prefix}：密码格式无效`);
+        if (mails.has(user.mail.toLowerCase())) errors.push(`${prefix}：邮箱在待确认名单中重复`);
+        if (unames.has(user.uname.toLowerCase())) errors.push(`${prefix}：用户名在待确认名单中重复`);
+        mails.add(user.mail.toLowerCase());
+        unames.add(user.uname.toLowerCase());
+        if (await UserModel.getByEmail(domainId, user.mail)) errors.push(`${prefix}：邮箱已存在`);
+        if (await UserModel.getByUname(domainId, user.uname)) errors.push(`${prefix}：用户名已存在`);
+    }
+    return errors;
+}
+
 // ==================== 用户管理处理器基类 ====================
 
 class UserManageHandler extends Handler {
@@ -238,6 +286,64 @@ class UserManageGroupsHandler extends UserManageHandler {
     }
 }
 
+async function updateAttributeGroups(domainId: string, users: Array<ImportUser & { uid: number }>) {
+    const additions = new Map<string, number[]>();
+    for (const user of users) {
+        if (user.major) additions.set(`专业：${user.major}`, [...(additions.get(`专业：${user.major}`) || []), user.uid]);
+        if (user.class) additions.set(`班级：${user.class}`, [...(additions.get(`班级：${user.class}`) || []), user.uid]);
+    }
+    if (!additions.size) return;
+    const existing = await UserModel.listGroup(domainId);
+    for (const [name, uids] of additions) {
+        const current = existing.find((group) => group.name === name)?.uids || [];
+        await UserModel.updateGroup(domainId, name, Array.from(new Set([...current, ...uids])));
+    }
+}
+
+// ==================== 批量添加用户 ====================
+
+class UserManageImportHandler extends UserManageHandler {
+    async get() {
+        this.response.template = 'user_manage_import.html';
+        this.response.body = { defaultPriv: await SystemModel.get('default.priv') };
+    }
+
+    @param('users', Types.String)
+    async postValidate(domainId: string, rawUsers: string) {
+        const users = parseImportUsers(rawUsers);
+        const errors = await validateImportUsers(domainId, users);
+        this.response.body = { valid: errors.length === 0, errors };
+    }
+
+    @param('users', Types.String)
+    async postCreate(domainId: string, rawUsers: string) {
+        const users = parseImportUsers(rawUsers);
+        const errors = await validateImportUsers(domainId, users);
+        if (errors.length) throw new ValidationError('users', errors.join('\n'));
+        const created: Array<ImportUser & { uid: number }> = [];
+        const defaultPriv = await SystemModel.get('default.priv');
+        for (const user of users) {
+            const uid = await UserModel.create(user.mail, user.uname, user.password, undefined, this.request.ip, defaultPriv);
+            await UserModel.setById(uid, {
+                school: user.school || '', bio: user.bio || '', major: user.major || '', class: user.class || '',
+            });
+            created.push({ ...user, uid });
+        }
+        await updateAttributeGroups(domainId, created);
+        this.response.body = { success: true, count: created.length, defaultPriv };
+    }
+}
+
+class UserManageAutoGroupHandler extends UserManageHandler {
+    async post(domainId: string) {
+        const udocs = await UserModel.getMulti({ $or: [{ major: { $ne: '' } }, { class: { $ne: '' } }] }).toArray();
+        await updateAttributeGroups(domainId, udocs.map((user) => ({
+            uid: user._id, uname: user.uname, mail: user.mail, password: '', major: user.major || '', class: user.class || '',
+        })));
+        this.response.body = { success: true, count: udocs.length };
+    }
+}
+
 // ==================== 用户详情和编辑处理器 ====================
 
 class UserManageDetailHandler extends UserManageHandler {
@@ -389,6 +495,8 @@ export async function apply(ctx: Context) {
     // 注意：具体路由必须在 /manage/users/:uid 之前注册，避免被 :uid 拦截
     ctx.Route('user_manage_export', '/manage/users/export', UserManageExportHandler, PRIV.PRIV_EDIT_SYSTEM);
     ctx.Route('user_manage_groups', '/manage/users/groups', UserManageGroupsHandler, PRIV.PRIV_EDIT_SYSTEM);
+    ctx.Route('user_manage_auto_group', '/manage/users/auto-group', UserManageAutoGroupHandler, PRIV.PRIV_EDIT_SYSTEM);
+    ctx.Route('user_manage_import', '/manage/users/import', UserManageImportHandler, PRIV.PRIV_EDIT_SYSTEM);
 
     // 页面路由
     ctx.Route('user_manage_main', '/manage/users', UserManageMainHandler, PRIV.PRIV_EDIT_SYSTEM);
