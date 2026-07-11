@@ -14,6 +14,11 @@
       <button id="deselect-all-btn" class="rounded button" style="display:none">
         {{ _('Deselect All') }}
       </button>
+      {% if className %}
+      <button id="select-class-btn" class="rounded button" title="{{ classUids|length }} users">
+        {{ _('Select All Filtered') }}
+      </button>
+      {% endif %}
     </div>
   </div>
 
@@ -43,12 +48,20 @@
   <div class="section__body">
     <form method="get" class="row" id="search-form">
       <input type="hidden" name="group" value="{{ group }}" id="search-group-input">
-      <div class="medium-6 columns">
+      <div class="medium-4 columns">
         <label>{{ _('Search Users') }}</label>
         <input type="text" name="search" id="search-input" value="{{ search }}"
                placeholder="{{ _('Username, Email or User ID') }}">
       </div>
-      <div class="medium-4 columns">
+      <div class="medium-2 columns">
+        <label>{{ _('Major') }}</label>
+        <input type="text" name="major" value="{{ major }}" placeholder="{{ _('Major') }}">
+      </div>
+      <div class="medium-2 columns">
+        <label>{{ _('Class') }}</label>
+        <input type="text" name="class" value="{{ className }}" placeholder="{{ _('Class') }}">
+      </div>
+      <div class="medium-2 columns">
         <label>{{ _('Sort by') }}</label>
         <select name="sort" id="sort-select">
           <option value="_id" {% if sort == '_id' %}selected{% endif %}>{{ _('User ID') }}</option>
@@ -225,12 +238,12 @@ $(function(){
   function apiPost(url, data) {
     return fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       credentials: 'same-origin',
       body: JSON.stringify(data)
     }).then(function(r){
       if (!r.ok) {
-        return r.json().then(function(e){
+        return r.json().catch(function(){ return {}; }).then(function(e){
           var msg = (e.error && e.error.message) || e.message || r.statusText;
           throw new Error(msg);
         });
@@ -288,6 +301,16 @@ $(function(){
     refreshToolbar();
   });
 
+  /* 按班级筛选时，可一次选中该筛选结果中的所有用户（包括其他分页）。 */
+  $('#select-class-btn').on('click', function(){
+    {% for uid in classUids %}
+    selected[{{ uid }}] = true;
+    {% endfor %}
+    $('.user-cb').each(function(){ this.checked = !!selected[$(this).data('uid')]; });
+    $('#select-all-cb').prop('checked', $('.user-cb').length > 0 && $('.user-cb:checked').length === $('.user-cb').length);
+    refreshToolbar();
+  });
+
   /* ====== 导出 ====== */
   $('#export-selected-btn').on('click', function(){
     var uids = Object.keys(selected).map(Number);
@@ -313,7 +336,11 @@ $(function(){
   /* ====== 分组筛选 ====== */
   $(document).on('click', '.group-tag', function(){
     var name = $(this).data('group') || '';
-    location.href = '{{ url('user_manage_main') }}' + (name ? '?group=' + encodeURIComponent(name) : '');
+    var url = new URL(window.location.href);
+    if (name) url.searchParams.set('group', name);
+    else url.searchParams.delete('group');
+    url.searchParams.delete('page');
+    location.href = url.pathname + (url.search || '');
   });
   if (currentGroup) {
     $('.group-tag').removeClass('active');

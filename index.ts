@@ -53,7 +53,9 @@ class UserManageMainHandler extends UserManageHandler {
     @param('search', Types.String, true)
     @param('sort', Types.String, true)
     @param('group', Types.String, true)
-    async get(domainId: string, page = 1, search = '', sort = '_id', group = '') {
+    @param('major', Types.String, true)
+    @param('class', Types.String, true)
+    async get(domainId: string, page = 1, search = '', sort = '_id', group = '', major = '', className = '') {
         const limit = 50;
         const query: any = {};
 
@@ -67,6 +69,10 @@ class UserManageMainHandler extends UserManageHandler {
                 query._id = { $in: [] };
             }
         }
+
+        // 专业、班级为用户文档的扩展字段；精确筛选后可批量选择整个班级。
+        if (major) query.major = major;
+        if (className) query.class = className;
 
         // 搜索功能
         if (search) {
@@ -102,6 +108,11 @@ class UserManageMainHandler extends UserManageHandler {
             limit
         );
 
+        // 仅在按班级筛选时取回该筛选结果的 ID，避免默认页面产生全量用户扫描。
+        const classUids = className
+            ? (await UserModel.getMulti(query, ['_id']).toArray()).map((udoc) => udoc._id)
+            : [];
+
         // 获取用户在当前域的信息
         const duids = udocs.map(udoc => udoc._id);
         const dudocs = await DomainModel.getMultiUserInDomain(domainId, { uid: { $in: duids } }).toArray();
@@ -122,6 +133,9 @@ class UserManageMainHandler extends UserManageHandler {
             search,
             sort,
             group,
+            major,
+            className,
+            classUids,
             groups,
             canEdit: true,
             moment
@@ -154,17 +168,18 @@ class UserManageExportHandler extends UserManageHandler {
         });
 
         // 生成 CSV
-        const columns = ['ID', '用户名', '邮箱', '专业', '班级', '注册类型'];
+        const columns = ['用户名', 'ID', '邮箱', '专业', '班级', '注册类型'];
         const rows = udocs.map(u => [
-            String(u._id),
             u.uname || '',
+            String(u._id),
             u.mail || '',
             u.major || '',
             u.class || '',
             getRegistrationType(u)
         ]);
 
-        const csv = '﻿' + generateCSV(columns, rows); // BOM for Excel UTF-8
+        // BOM 由浏览器下载时添加，避免 CSV 首列表头出现重复的不可见字符。
+        const csv = generateCSV(columns, rows);
 
         this.response.body = { csv };
     }
@@ -181,53 +196,45 @@ class UserManageGroupsHandler extends UserManageHandler {
         this.response.body = { groups };
     }
 
-    @param('operation', Types.String)
     @param('name', Types.String, true)
-    @param('uids', Types.String, true)
-    async post(domainId: string, operation: string, name?: string, uids?: string) {
-        if (operation === 'create') {
-            if (!name || !name.trim()) {
-                throw new ValidationError('name', 'Group name is required');
-            }
-            const trimmed = name.trim();
-            const existing = await UserModel.listGroup(domainId, undefined, [trimmed]);
-            if (existing.length > 0) {
-                throw new ValidationError('name', 'Group already exists');
-            }
-            await UserModel.updateGroup(domainId, trimmed, []);
-            this.response.body = { success: true, name: trimmed };
+    async postCreate(domainId: string, name?: string) {
+        if (!name || !name.trim()) throw new ValidationError('name', 'Group name is required');
+        const trimmed = name.trim();
+        const existing = await UserModel.listGroup(domainId, undefined, [trimmed]);
+        if (existing.length > 0) throw new ValidationError('name', 'Group already exists');
+        await UserModel.updateGroup(domainId, trimmed, []);
+        this.response.body = { success: true, name: trimmed };
+    }
 
-        } else if (operation === 'delete') {
-            if (!name) throw new ValidationError('name', 'Group name is required');
-            await UserModel.delGroup(domainId, name);
-            this.response.body = { success: true };
+    @param('name', Types.String)
+    async postDelete(domainId: string, name: string) {
+        await UserModel.delGroup(domainId, name);
+        this.response.body = { success: true };
+    }
 
-        } else if (operation === 'addUsers') {
-            if (!name) throw new ValidationError('name', 'Group name is required');
-            const uidArr = parseUidArray(uids);
-            if (uidArr.length === 0) throw new ValidationError('uids', 'No users selected');
-            const gdocs = await UserModel.listGroup(domainId, undefined, [name]);
-            if (gdocs.length === 0) throw new ValidationError('name', 'Group not found');
-            const existingUids = gdocs[0].uids || [];
-            const merged = [...new Set([...existingUids, ...uidArr])];
-            await UserModel.updateGroup(domainId, name, merged);
-            this.response.body = { success: true, count: merged.length };
+    @param('name', Types.String)
+    @param('uids', Types.String)
+    async postAddUsers(domainId: string, name: string, uids: string) {
+        const uidArr = parseUidArray(uids);
+        if (uidArr.length === 0) throw new ValidationError('uids', 'No users selected');
+        const gdocs = await UserModel.listGroup(domainId, undefined, [name]);
+        if (gdocs.length === 0) throw new ValidationError('name', 'Group not found');
+        const merged = [...new Set([...(gdocs[0].uids || []), ...uidArr])];
+        await UserModel.updateGroup(domainId, name, merged);
+        this.response.body = { success: true, count: merged.length };
+    }
 
-        } else if (operation === 'removeUsers') {
-            if (!name) throw new ValidationError('name', 'Group name is required');
-            const uidArr = parseUidArray(uids);
-            if (uidArr.length === 0) throw new ValidationError('uids', 'No users selected');
-            const gdocs = await UserModel.listGroup(domainId, undefined, [name]);
-            if (gdocs.length === 0) throw new ValidationError('name', 'Group not found');
-            const existingUids = gdocs[0].uids || [];
-            const uidSet = new Set(uidArr);
-            const filtered = existingUids.filter((id: number) => !uidSet.has(id));
-            await UserModel.updateGroup(domainId, name, filtered);
-            this.response.body = { success: true, count: filtered.length };
-
-        } else {
-            throw new ValidationError('operation', 'Unknown operation');
-        }
+    @param('name', Types.String)
+    @param('uids', Types.String)
+    async postRemoveUsers(domainId: string, name: string, uids: string) {
+        const uidArr = parseUidArray(uids);
+        if (uidArr.length === 0) throw new ValidationError('uids', 'No users selected');
+        const gdocs = await UserModel.listGroup(domainId, undefined, [name]);
+        if (gdocs.length === 0) throw new ValidationError('name', 'Group not found');
+        const uidSet = new Set(uidArr);
+        const filtered = (gdocs[0].uids || []).filter((id: number) => !uidSet.has(id));
+        await UserModel.updateGroup(domainId, name, filtered);
+        this.response.body = { success: true, count: filtered.length };
     }
 }
 
