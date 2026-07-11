@@ -202,12 +202,12 @@
 </div>
 
 <style>
-.col--cb { width: 38px; }
+.col--cb { width: 112px; min-width:112px; text-align:center; }
 .col--uid { width: 60px; }
 .col--user { min-width: 150px; }
 .col--email { min-width: 210px; }
-.col--major { min-width: 130px; }
-.col--class { min-width: 130px; }
+.col--major { min-width: 150px; white-space:nowrap; }
+.col--class { min-width: 150px; white-space:nowrap; }
 .col--regtype { min-width: 100px; }
 .col--priv { width: 80px; }
 .col--actions { min-width: 84px; text-align:center; }
@@ -225,12 +225,14 @@
 .section__tools{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px}
 .um-filter-row{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px}
 .um-group-select{display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap;font-size:13px}
-.um-group-select select{width:auto;max-width:36vw;height:32px}
+.um-group-select select{width:auto;max-width:none;height:32px}
 .um-table-wrap{overflow-x:auto}
-#user-table{min-width:1140px}
+#user-table{min-width:1220px;table-layout:fixed}
+#user-table th,#user-table td{vertical-align:middle;text-align:left}
+#user-table .col--cb,#user-table .col--actions{text-align:center}
 .data-table .button{white-space:nowrap;text-align:center}
-.select-all-wrap{display:flex;min-height:34px;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px}
-.select-all-wrap .um-selected-count{font-size:11px;line-height:1.1;white-space:nowrap;margin:0}
+.select-all-wrap{display:flex;min-height:42px;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px}
+.select-all-wrap .um-selected-count{font-size:12px;line-height:1.2;white-space:nowrap;margin:0;color:#337ab7}
 
 .um-dialog{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
   background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.2);
@@ -365,6 +367,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
   /* ====== 分组筛选 ====== */
   function switchGroup(name) {
     var url = new URL(window.location.href);
+    url.searchParams.delete('search');
+    url.searchParams.delete('major');
+    url.searchParams.delete('class');
     if (name) url.searchParams.set('group', name);
     else url.searchParams.delete('group');
     url.searchParams.delete('page');
