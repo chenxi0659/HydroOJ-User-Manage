@@ -106,13 +106,13 @@
       <thead>
         <tr>
           <th class="col--cb"><div class="select-all-wrap"><span id="selected-count" class="um-selected-count" style="display:none"></span><input type="checkbox" id="select-all-cb"></div></th>
-          <th class="col--uid">{{ _('User ID') }}</th>
-          <th class="col--user">{{ _('Username') }}</th>
-          <th class="col--email">{{ _('Email') }}</th>
-          <th class="col--major">{{ _('Major') }}</th>
-          <th class="col--class">{{ _('Class') }}</th>
-          <th class="col--regtype">{{ _('Registration Type') }}</th>
-          <th class="col--priv">{{ _('Privilege') }}</th>
+          <th class="col--uid" style="text-align:left!important;padding-left:12px!important">{{ _('User ID') }}</th>
+          <th class="col--user" style="text-align:left!important;padding-left:12px!important">{{ _('Username') }}</th>
+          <th class="col--email" style="text-align:left!important;padding-left:12px!important">{{ _('Email') }}</th>
+          <th class="col--major" style="text-align:left!important;padding-left:12px!important">{{ _('Major') }}</th>
+          <th class="col--class" style="text-align:left!important;padding-left:12px!important">{{ _('Class') }}</th>
+          <th class="col--regtype" style="text-align:left!important;padding-left:12px!important">{{ _('Registration Type') }}</th>
+          <th class="col--priv" style="text-align:left!important;padding-left:12px!important">{{ _('Privilege') }}</th>
           <th class="col--actions">{{ _('Actions') }}</th>
         </tr>
       </thead>
@@ -124,24 +124,24 @@
           <td class="col--cb">
             <input type="checkbox" class="user-cb" data-uid="{{ udoc._id }}">
           </td>
-          <td class="col--uid">{{ udoc._id }}</td>
-          <td class="col--user">
+          <td class="col--uid" style="text-align:left!important;padding-left:12px!important">{{ udoc._id }}</td>
+          <td class="col--user" style="text-align:left!important;padding-left:12px!important">
             {{ user.render_inline(udoc, badge=false) }}
             {% if dudoc and dudoc.displayName %}
               <br><small class="text-gray">{{ dudoc.displayName }}</small>
             {% endif %}
           </td>
-          <td class="col--email">{{ udoc.mail }}</td>
-          <td class="col--major">{{ udoc.major or '-' }}</td>
-          <td class="col--class">{{ udoc.class or '-' }}</td>
-          <td class="col--regtype">
+          <td class="col--email" style="text-align:left!important;padding-left:12px!important">{{ udoc.mail }}</td>
+          <td class="col--major" style="text-align:left!important;padding-left:12px!important">{{ udoc.major or '-' }}</td>
+          <td class="col--class" style="text-align:left!important;padding-left:12px!important">{{ udoc.class or '-' }}</td>
+          <td class="col--regtype" style="text-align:left!important;padding-left:12px!important">
             {% if isUnified %}
               <span class="badge badge--blue">{{ _('Unified Registration') }}</span>
             {% else %}
               <span class="badge badge--yellow">{{ _('Self Registration') }}</span>
             {% endif %}
           </td>
-          <td class="col--priv">
+          <td class="col--priv" style="text-align:left!important;padding-left:12px!important">
             {% if udoc.priv == -1 %}
               <span class="badge badge--red">root</span>
             {% elif udoc.priv == 0 %}
