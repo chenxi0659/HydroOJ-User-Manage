@@ -62,6 +62,12 @@
           {% for g in classGroups %}<option value="{{ g.name }}" {% if group == g.name %}selected{% endif %}>{{ g.label }} ({{ g.count }})</option>{% endfor %}
         </select>
       </label>
+      <label class="um-group-select">手动分组
+        <select id="manual-group-select" style="min-width:{{ manualGroupWidth }}ch">
+          <option value="">选择手动分组</option>
+          {% for g in manualGroups %}<option value="{{ g.name }}" {% if group == g.name %}selected{% endif %}>{{ g.name }} ({{ g.count }})</option>{% endfor %}
+        </select>
+      </label>
       <button type="button" id="create-group-btn" class="rounded button button--small">
         <span class="icon icon-add"></span> {{ _('Create Group') }}
       </button>
@@ -479,7 +485,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
     location.href = url.pathname + (url.search || '');
   }
   $('#all-users-btn').on('click', function(){ location.href = '{{ url('user_manage_main') }}'; });
-  $('#major-group-select, #class-group-select').on('change', function(){ if (this.value) switchGroup(this.value); });
+  $('#major-group-select, #class-group-select, #manual-group-select').on('change', function(){ if (this.value) switchGroup(this.value); });
   if (currentGroup) $('#delete-group-btn').show();
 
   /* ====== 新建分组 ====== */

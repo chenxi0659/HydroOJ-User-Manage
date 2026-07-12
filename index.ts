@@ -187,6 +187,7 @@ class UserManageMainHandler extends UserManageHandler {
             .map(g => ({ name: g.name, count: g.uids.length }));
         const majorGroups = groups.filter((g) => g.name.startsWith('专业：')).map((g) => ({ ...g, label: g.name.slice(3) }));
         const classGroups = groups.filter((g) => g.name.startsWith('班级：')).map((g) => ({ ...g, label: g.name.slice(3) }));
+        const manualGroups = groups.filter((g) => !g.name.startsWith('专业：') && !g.name.startsWith('班级：'));
 
         this.response.template = 'user_manage_main.html';
         this.response.body = {
@@ -204,8 +205,10 @@ class UserManageMainHandler extends UserManageHandler {
             groups,
             majorGroups,
             classGroups,
+            manualGroups,
             majorGroupWidth: Math.max(12, ...majorGroups.map((g) => g.name.length + 6)),
             classGroupWidth: Math.max(12, ...classGroups.map((g) => g.name.length + 6)),
+            manualGroupWidth: Math.max(12, ...manualGroups.map((g) => g.name.length + 6)),
             canEdit: true,
             moment
         };
@@ -350,12 +353,32 @@ class UserManageGroupsHandler extends UserManageHandler {
     @param('name', Types.String)
     @param('uids', Types.String)
     async postAddUsers(domainId: string, name: string, uids: string) {
-        const uidArr = parseUidArray(uids);
+        const uidArr = Array.from(new Set(parseUidArray(uids)));
         if (uidArr.length === 0) throw new ValidationError('uids', 'No users selected');
         const gdocs = await UserModel.listGroup(domainId, undefined, [name]);
         if (gdocs.length === 0) throw new ValidationError('name', 'Group not found');
+        const groupName = gdocs[0].name;
+
+        // 专业/班级分组是用户属性的投影：加入时以分组名统一更新属性，
+        // 随后重建所有属性分组，以移除用户原有的属性分组成员关系和空分组。
+        const field = groupName.startsWith('专业：') ? 'major' : groupName.startsWith('班级：') ? 'class' : '';
+        if (field) {
+            const users = await UserModel.coll.find({ _id: { $in: uidArr } }).toArray();
+            if (users.length !== uidArr.length) throw new ValidationError('uids', 'One or more users no longer exist');
+            await UserModel.coll.updateMany(
+                { _id: { $in: uidArr } },
+                { $set: { [field]: groupName.slice(3) } },
+            );
+            for (const user of users) UserModel._deleteUserCache(user);
+            await syncAttributeGroups(domainId);
+            const updatedGroup = await UserModel.listGroup(domainId, undefined, [groupName]);
+            this.response.body = { success: true, count: updatedGroup[0]?.uids.length || 0, field };
+            return;
+        }
+
+        // 手动分组仅维护成员关系，不能改变用户的专业或班级属性。
         const merged = [...new Set([...(gdocs[0].uids || []), ...uidArr])];
-        await UserModel.updateGroup(domainId, name, merged);
+        await UserModel.updateGroup(domainId, groupName, merged);
         this.response.body = { success: true, count: merged.length };
     }
 
